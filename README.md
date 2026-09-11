@@ -8,9 +8,9 @@
 
 ## Текущий статус
 
-**Версия 0.3 — IDE-клиент Codex в режиме только чтения.** Настоящий `codex app-server` использует существующий вход пользователя и передаёт потоковый ответ в native SWT/JFace-панель. Добавлены чаты, выбор модели и reasoning, Stop, Markdown и актуальный несохранённый BSL-буфер.
+**Версия 0.3.1 — принятая вручную версия с усилением lifecycle и изоляции ответов, только чтение.** Настоящий `codex app-server` использует существующий вход пользователя и передаёт потоковый ответ в native SWT/JFace-панель. Добавлены чаты, выбор модели и reasoning, Stop, Markdown и актуальный несохранённый BSL-буфер.
 
-Предыдущая версия 0.2 (commit `4714953`) принята автором вручную в настоящем BSL-редакторе EDT, включая реальные ответы Codex и Skills. Версия 0.3 подготовлена для отдельной ручной приёмки; перечень выполненных автоматических проверок и их границы — в [docs/testing.md](docs/testing.md).
+Версия 0.3 (commit `3e6365b`) принята автором в настоящем BSL-редакторе: dirty buffer, чаты, модели/reasoning, Stop, обе темы, Account и Preferences. Версия 0.3.1 также принята автором вручную. Для 0.3.1 добавлены отложенное создание клиента, защита dispose и проверки поздних событий после Stop. **Первопричина сообщённого Error Part при restore пока не подтверждена**: исходная v0.3 также проходит автоматические повторные запуски. Диагностика, результаты и TC-18…TC-22 — в [docs/testing.md](docs/testing.md).
 
 Проверенная среда: Windows x86_64, EDT **2026.1.3.25**, Java **17**, Maven **3.9.16**, Tycho **4.0.5**, Codex CLI **0.153.4**. Для другой версии Codex следует заново проверить schema и тесты.
 
@@ -68,7 +68,7 @@ Set-Location C:\projects\codex-edt
 
 Через **⋯** или **Window → Preferences → Codex for 1C:EDT** меняются только настройки EDT: поведение Enter и видимость диагностики. При выключенном Enter-to-send Enter добавляет строку; отправка — кнопкой **↑**. Версия, raw model id, cwd и thread id также доступны в tooltip статуса.
 
-Если executable не найден, используйте `-CodexExecutable 'полный путь к codex.exe'`. Если нужен вход — выполните штатный `codex login` в PowerShell, завершите вход в браузере и нажмите **Переподключить**. Не вводите токены в EDT. Кнопка **Аккаунт** показывает данные app-server; выход относится к общей авторизации Codex, поэтому UI запрашивает подтверждение.
+Если executable не найден, используйте `-CodexExecutable 'полный путь к codex.exe'`. Если нужен вход — выполните штатный `codex login` в PowerShell, завершите вход в браузере и нажмите **Повторить подключение**. Не вводите токены в EDT. Кнопка **Аккаунт** показывает данные app-server; выход относится к общей авторизации Codex, поэтому UI запрашивает подтверждение.
 
 Автоматические проверки в полном EDT:
 
@@ -85,7 +85,7 @@ Set-Location C:\projects\codex-edt
 После BUILD SUCCESS установочный ZIP:
 
 ```text
-repositories/io.github.zhumaniezov.codex.edt.repository/target/io.github.zhumaniezov.codex.edt.repository-0.3.0-SNAPSHOT.zip
+repositories/io.github.zhumaniezov.codex.edt.repository/target/io.github.zhumaniezov.codex.edt.repository-0.3.1-SNAPSHOT.zip
 ```
 
 В обычной EDT: **Help → Install New Software… → Add… → Archive…**, выбрать ZIP и **Codex → Codex for 1C:EDT**. Завершить мастер и перезапустить EDT. При обновлении с 0.2 идентификатор bundle сохраняется. Основная EDT автоматически не изменяется.

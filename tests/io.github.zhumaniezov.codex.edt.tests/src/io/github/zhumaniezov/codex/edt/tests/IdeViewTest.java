@@ -20,8 +20,10 @@ import io.github.zhumaniezov.codex.edt.client.SessionData.State;
 import io.github.zhumaniezov.codex.edt.context.EclipseContextProvider;
 
 public class IdeViewTest {
-    @Test public void nativeComposerModelsStopNewResumeAndDirtyContext() throws Exception {
-        var session = new CodexSessionService(TestServer.command("interrupt"), "test", line -> { });
+    @Test public void nativeComposerModelsStopNewResumeAndDirtyContext() throws Exception { run("interrupt"); }
+    @Test public void interruptedAnswerRemainsInOwnUiHistoryAndNextAnswerContainsOnlyItsEvents() throws Exception { run("late-turn"); }
+    private void run(String mode) throws Exception {
+        var session = new CodexSessionService(TestServer.command(mode), "test", line -> { });
         var registration = FrameworkUtil.getBundle(getClass()).getBundleContext().registerService(CodexClientFactory.class, () -> session, null);
         var page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
         var project = ResourcesPlugin.getWorkspace().getRoot().getProject("codex-ide-" + UUID.randomUUID());
@@ -72,7 +74,15 @@ public class IdeViewTest {
             prompt.notifyListeners(SWT.KeyDown, shiftEnter); assertTrue(shiftEnter.doit); assertEquals(State.STOPPED, session.snapshot().state());
             waitFor(send::isEnabled, 10, () -> { });
             send.notifyListeners(SWT.Selection, new Event());
-            waitFor(() -> session.snapshot().state() == State.READY && response.getText().contains("Привет"), 15, () -> { });
+            waitFor(() -> session.snapshot().state() == State.READY && response.getText().contains(mode.equals("late-turn") ? "ONLY_B_END" : "Привет"), 15, () -> { });
+            if (mode.equals("late-turn")) {
+                String transcript = response.getText();
+                assertTrue(transcript.contains("PARTIAL_A"));
+                assertTrue(transcript.indexOf("PARTIAL_A") < transcript.indexOf("ONLY_B_END"));
+                assertEquals(transcript.indexOf("PARTIAL_A"), transcript.lastIndexOf("PARTIAL_A"));
+                assertFalse(transcript.contains("LATE_A")); assertFalse(transcript.contains("AFTER_ITEM_COMPLETE"));
+                assertFalse(transcript.contains("DUPLICATE_ITEM"));
+            }
             var newChat = (Button) find(shell, "newThread"); var chats = (Table) find(shell, "threads");
             waitFor(() -> chats.getItemCount() == 1 && newChat.isEnabled(), 10, () -> { });
             prompt.setText("Черновик"); newChat.notifyListeners(SWT.Selection, new Event());

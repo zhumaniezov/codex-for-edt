@@ -10,7 +10,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $bundleId = 'io.github.zhumaniezov.codex.edt'
 $testId = "$bundleId.tests"
 $featureId = "$bundleId.feature"
-$version = '0.3.0.v' + (Get-Date -Format 'yyyyMMddHHmmss')
+$version = '0.3.1.v' + (Get-Date -Format 'yyyyMMddHHmmss')
 $runRoot = Join-Path $projectRoot ".runtime\local-$version"
 $configuration = Join-Path $runRoot 'configuration'
 $repository = Join-Path $runRoot 'repository'
@@ -55,7 +55,14 @@ foreach ($item in @(@{ Id=$bundleId; Folder='bundles' }, @{ Id=$testId; Folder='
     Write-Utf8 $argFile ($arguments -join "`n")
     & "$JavaHome\bin\javac.exe" "@$argFile" 2>&1 | Tee-Object -FilePath "$runRoot\$id.compile.log"
     if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $id" }
-    $manifest = (Get-Content -LiteralPath "$sourceRoot\META-INF\MANIFEST.MF" -Raw).Replace('0.3.0.qualifier', $version)
+    # Ресурсы локализации поставляются рядом с классами, как при сборке Tycho.
+    Get-ChildItem -LiteralPath "$sourceRoot\src" -Recurse -File | Where-Object Extension -NE '.java' | ForEach-Object {
+        $relative = $_.FullName.Substring(("$sourceRoot\src\").Length)
+        $destination = Join-Path $classes $relative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item -LiteralPath $_.FullName -Destination $destination
+    }
+    $manifest = (Get-Content -LiteralPath "$sourceRoot\META-INF\MANIFEST.MF" -Raw).Replace('0.3.1.qualifier', $version)
     $manifestPath = Join-Path $runRoot "$id.MF"
     Write-Utf8 $manifestPath $manifest
     $jarPath = Join-Path $runRoot "source\plugins\$id`_$version.jar"
@@ -76,7 +83,7 @@ $builtJars[$testId] = $testJar
 
 $featureSource = Join-Path $runRoot 'feature'
 $featureXml = (Get-Content -LiteralPath "$projectRoot\features\$featureId\feature.xml" -Raw).
-    Replace('0.3.0.qualifier', $version).Replace('version="0.0.0"', "version=`"$version`"")
+    Replace('0.3.1.qualifier', $version).Replace('version="0.0.0"', "version=`"$version`"")
 Write-Utf8 "$featureSource\feature.xml" $featureXml
 New-Item -ItemType Directory -Force -Path "$runRoot\source\features" | Out-Null
 & "$JavaHome\bin\jar.exe" --create --file "$runRoot\source\features\$featureId`_$version.jar" -C $featureSource feature.xml

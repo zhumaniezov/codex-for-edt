@@ -10,7 +10,7 @@ final class StatusComponent {
     private final Label diagnostic;
     StatusComponent(Composite parent) {
         status = new Label(parent, SWT.WRAP); status.setData("codex.role", "status");
-        status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); status.setText("Подключение...");
+        status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); status.setText(io.github.zhumaniezov.codex.edt.Messages.CONNECTING);
         diagnostic = new Label(parent, SWT.WRAP); diagnostic.setData("codex.role", "diagnostic");
         diagnostic.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); showDiagnostic();
     }

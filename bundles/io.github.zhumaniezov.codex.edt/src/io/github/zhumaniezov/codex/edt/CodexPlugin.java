@@ -12,7 +12,7 @@ import io.github.zhumaniezov.codex.edt.protocol.CodexProtocol;
 
 public final class CodexPlugin extends Plugin {
     public static final String ID = "io.github.zhumaniezov.codex.edt";
-    private static CodexPlugin instance;
+    private static volatile CodexPlugin instance;
     private final Set<CodexClient> clients = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -21,7 +21,8 @@ public final class CodexPlugin extends Plugin {
         instance = this;
     }
 
-    public static CodexClient createClient() {
+    public static synchronized CodexClient createClient() {
+        if (instance == null) { throw new IllegalStateException(Messages.UNAVAILABLE); }
         var context = instance.getBundle().getBundleContext();
         var reference = context.getServiceReference(CodexClientFactory.class);
         CodexClient client;
@@ -41,8 +42,9 @@ public final class CodexPlugin extends Plugin {
     }
 
     public static void release(CodexClient client) {
+        var plugin = instance;
         client.close();
-        if (instance != null) { instance.clients.remove(client); }
+        if (plugin != null) { plugin.clients.remove(client); }
     }
 
     public static void log(String message, Throwable error) {
@@ -55,10 +57,11 @@ public final class CodexPlugin extends Plugin {
 
     @Override
     public void stop(BundleContext context) throws Exception {
-        clients.forEach(CodexClient::close);
-        clients.clear();
-        instance = null;
+        synchronized (CodexPlugin.class) {
+            instance = null;
+            clients.forEach(CodexClient::close);
+            clients.clear();
+        }
         super.stop(context);
     }
 }
-

@@ -44,6 +44,7 @@ public final class CodexSessionService implements CodexClient {
     private static final class ActiveTurn {
         final CompletableFuture<String> future;
         final Consumer<String> onText;
+        final java.util.Set<String> completedItems = new java.util.HashSet<>();
         final LinkedHashMap<String, String> items = new LinkedHashMap<>();
         String id = "";
         ActiveTurn(CompletableFuture<String> future, Consumer<String> onText) { this.future = future; this.onText = onText; }
@@ -117,7 +118,7 @@ public final class CodexSessionService implements CodexClient {
                 if (closed) { rpc.close(); throw new IOException("Панель Codex закрыта."); }
                 var bundle = FrameworkUtil.getBundle(CodexSessionService.class);
                 call("initialize", object("clientInfo", object("name", "codex_edt", "title", "Codex for 1C:EDT",
-                    "version", bundle == null ? "0.3.0" : bundle.getVersion().toString())));
+                    "version", bundle == null ? "0.3.1" : bundle.getVersion().toString())));
                 rpc.notify("initialized");
                 JsonObject response = call("account/read", object("refreshToken", false));
                 account = SessionData.account(response);
@@ -293,13 +294,22 @@ public final class CodexSessionService implements CodexClient {
             if (turn == null || !threadId.equals(string(params, "threadId"))) { return; }
             String id = method.equals("turn/completed") || method.equals("turn/started")
                 ? string(params.getAsJsonObject("turn"), "id") : string(params, "turnId");
-            if (!turn.id.isEmpty() && !turn.id.equals(id)) { return; }
+            // Идентификатор принимается только из ответа turn/start; уведомление не может переназначить turn.
+            if (turn.id.isEmpty() || !turn.id.equals(id)) { return; }
             switch (method) {
-                case "turn/started" -> turn.id = id;
-                case "item/agentMessage/delta" -> { turn.items.merge(string(params, "itemId"), string(params, "delta"), String::concat); publish(turn); }
+                case "turn/started" -> { }
+                case "item/agentMessage/delta" -> {
+                    String itemId = string(params, "itemId");
+                    if (!itemId.isBlank() && !turn.completedItems.contains(itemId)) {
+                        turn.items.merge(itemId, string(params, "delta"), String::concat); publish(turn);
+                    }
+                }
                 case "item/completed" -> {
                     var item = params.getAsJsonObject("item");
-                    if ("agentMessage".equals(string(item, "type"))) { turn.items.put(string(item, "id"), string(item, "text")); publish(turn); }
+                    String itemId = string(item, "id");
+                    if ("agentMessage".equals(string(item, "type")) && !itemId.isBlank() && turn.completedItems.add(itemId)) {
+                        turn.items.put(itemId, string(item, "text")); publish(turn);
+                    }
                 }
                 case "error" -> {
                     if (bool(params, "willRetry")) { listener.status("Повтор соединения..."); }

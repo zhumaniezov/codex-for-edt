@@ -57,6 +57,7 @@ public final class FakeAppServer {
                 JsonElement id = request.get("id");
                 JsonObject params = request.has("params") ? request.getAsJsonObject("params") : new JsonObject();
                 if (method.equals("initialize")) {
+                    if (mode.equals("slow-init")) { Thread.sleep(2000); }
                     check(params.getAsJsonObject("clientInfo").get("name").getAsString().equals("codex_edt"));
                     check(!params.has("capabilities") || !params.getAsJsonObject("capabilities").has("experimentalApi"));
                     reply(id, obj("userAgent", "test"));
@@ -64,6 +65,10 @@ public final class FakeAppServer {
                 }
                 if (method.equals("initialized")) { initialized = true; continue; }
                 check(initialized);
+                if (mode.equals(method.replace('/', '-') + "-error")) {
+                    write(obj("id", id, "error", obj("code", -32000, "message", "Тестовая ошибка " + method)));
+                    continue;
+                }
                 switch (method) {
                     case "account/read" -> {
                         check(!params.get("refreshToken").getAsBoolean());
@@ -133,6 +138,14 @@ public final class FakeAppServer {
                                 obj("type", "agentMessage", "text", "Ответ из истории " + thread))));
                         reply(id, obj("turn", obj("id", turn, "status", "inProgress")));
                         event("turn/started", obj("threadId", thread, "turn", obj("id", turn)));
+                        if (mode.equals("late-turn") && turns > 1) {
+                            event("turn/started", obj("threadId", thread, "turn", obj("id", "turn-1")));
+                            event("item/agentMessage/delta", obj("threadId", thread, "turnId", "turn-1", "itemId", "a", "delta", "LATE_A"));
+                            event("item/completed", obj("threadId", thread, "turnId", "turn-1", "completedAtMs", 1,
+                                "item", obj("id", "a", "type", "agentMessage", "text", "LATE_A_COMPLETE")));
+                            event("error", obj("threadId", thread, "turnId", "turn-1", "willRetry", false, "error", obj("message", "LATE_A_ERROR")));
+                            event("turn/completed", obj("threadId", thread, "turn", obj("id", "turn-1", "status", "interrupted")));
+                        }
                         if (mode.equals("auth-update")) {
                             mode = "auth"; event("account/updated", obj("authMode", null, "planType", null)); continue;
                         }
@@ -146,15 +159,20 @@ public final class FakeAppServer {
                             if (mode.equals("fail")) { continue; }
                         }
                         event("item/agentMessage/delta", obj("threadId", "foreign-thread", "turnId", turn, "itemId", "a", "delta", "Чужой ответ"));
-                        String a = "Сообщить выводит ";
-                        String b = "«Привет». " + thread;
+                        String a = mode.equals("late-turn") ? (turns == 1 ? "PARTIAL_A" : "ONLY_B") : "Сообщить выводит ";
+                        String b = mode.equals("late-turn") ? "_END" : "«Привет». " + thread;
                         event("item/agentMessage/delta", obj("threadId", thread, "turnId", turn, "itemId", "a", "delta", a));
-                        if (mode.equals("interrupt") && turns == 1) { continue; }
+                        if ((mode.equals("interrupt") || mode.equals("late-turn")) && turns == 1) { continue; }
                         Thread.sleep(120);
                         event("item/agentMessage/delta", obj("threadId", thread, "turnId", turn, "itemId", "a", "delta", b));
                         Thread.sleep(120);
                         event("item/completed", obj("threadId", thread, "turnId", turn, "item",
                             obj("type", "agentMessage", "id", "a", "text", a + b)));
+                        if (mode.equals("late-turn")) {
+                            event("item/agentMessage/delta", obj("threadId", thread, "turnId", turn, "itemId", "a", "delta", "AFTER_ITEM_COMPLETE"));
+                            event("item/completed", obj("threadId", thread, "turnId", turn,
+                                "item", obj("type", "agentMessage", "id", "a", "text", "DUPLICATE_ITEM")));
+                        }
                         event("turn/completed", obj("threadId", thread, "turn", obj("id", turn, "status", "completed", "error", null)));
                     }
                     case "echo/first" -> first = id;

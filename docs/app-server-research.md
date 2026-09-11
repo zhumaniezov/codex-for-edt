@@ -25,7 +25,7 @@ CLI помечает сам app-server и генератор схем как э�
 Один запрос `initialize` на соединение:
 
 ```json
-{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.3.0"}}}
+{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.3.1"}}}
 ```
 
 После успешного ответа — уведомление `initialized`, затем `account/read` с `refreshToken:false`. Версия clientInfo в реализации берётся из bundle.
@@ -129,3 +129,10 @@ MCP-серверы могут выполнять действия вне фай�
 - Удалённые каталоги, занятые другим клиентом thread и слишком большой ответ истории могут потребовать другого чата; клиент не обходит блокировки. JSONL ограничен 2 МиБ на строку, RPC — 45 секундами.
 - Browser login из EDT, очередь/steering, архивирование, полный вывод tool items, редактор глобального Codex config и семантика метаданных EDT отложены.
 - Режим записи, shell approvals, file change approvals, diff и Apply / Reject отсутствуют.
+
+
+## Проверка маршрутизации v0.3.1
+
+11.09.2026 повторно подтверждён `codex-cli 0.153.4`. Сверены definitions сгенерированной схемы этой версии: `AgentMessageDeltaNotification` содержит обязательные `threadId`, `turnId`, `itemId`, `delta`; `ItemCompletedNotification` — `threadId`, `turnId`, `item` и `completedAtMs`; `TurnStartedNotification`/`TurnCompletedNotification` — `threadId` и `turn`; `ErrorNotification` — `threadId`, `turnId`, `error`, `willRetry`.
+
+Новые RPC не добавлены. `turn/interrupt` остаётся штатным способом Stop. Поздние события предыдущего turn отбрасываются по идентификаторам; завершённый item не открывается заново из-за поздней delta. Сгенерированные schema остаются вне Git. Реальное подключение после переноса фабрики из конструктора View проверяется теми же opt-in live-тестами через stdio; модель, auth и sandbox не изменены.
