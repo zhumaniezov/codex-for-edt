@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+  <extension point="org.eclipse.ui.views">
+    <category id="com.admglobal.codex.edt.category" name="ADM Global"/>
+    <view id="com.admglobal.codex.edt.views.Codex" name="Codex"
+        category="com.admglobal.codex.edt.category"
+        class="com.admglobal.codex.edt.ui.CodexView" restorable="true" allowMultiple="false">
+      <description>Codex for 1C:EDT — локальная тестовая панель чата.</description>
+    </view>
+  </extension>
+</plugin>
+

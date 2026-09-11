@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.admglobal.codex</groupId><artifactId>bom</artifactId><version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <properties>
+    <tycho.version>4.0.5</tycho.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+  </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId><artifactId>tycho-maven-plugin</artifactId>
+        <version>${tycho.version}</version><extensions>true</extensions>
+      </plugin>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId><artifactId>target-platform-configuration</artifactId>
+        <version>${tycho.version}</version>
+        <configuration>
+          <executionEnvironment>JavaSE-17</executionEnvironment>
+          <target><artifact>
+            <groupId>com.admglobal.codex</groupId><artifactId>default</artifactId><version>0.1.0-SNAPSHOT</version>
+          </artifact></target>
+          <environments><environment><os>win32</os><ws>win32</ws><arch>x86_64</arch></environment></environments>
+          <!-- Расширители среды явно указаны и в официальном примере для 2026.1. -->
+          <dependency-resolution><extraRequirements>
+            <requirement><type>eclipse-plugin</type><id>org.apache.felix.scr</id><versionRange>0.0.0</versionRange></requirement>
+            <requirement><type>eclipse-plugin</type><id>org.apache.aries.spifly.dynamic.bundle</id><versionRange>1.3.7</versionRange></requirement>
+          </extraRequirements></dependency-resolution>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><version>3.4.1</version>
+        <executions><execution><id>build-environment</id><goals><goal>enforce</goal></goals>
+          <configuration><rules>
+            <requireMavenVersion><version>[3.9.4,4.0)</version></requireMavenVersion>
+            <requireJavaVersion><version>[17,18)</version></requireJavaVersion>
+          </rules></configuration>
+        </execution></executions>
+      </plugin>
+    </plugins>
+    <pluginManagement><plugins>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId><artifactId>tycho-compiler-plugin</artifactId>
+        <version>${tycho.version}</version>
+        <configuration><useProjectSettings>true</useProjectSettings><encoding>UTF-8</encoding></configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId><artifactId>tycho-p2-repository-plugin</artifactId>
+        <version>${tycho.version}</version>
+        <configuration><repositoryName>Codex for 1C:EDT</repositoryName><includeAllDependencies>false</includeAllDependencies></configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId><artifactId>tycho-surefire-plugin</artifactId>
+        <version>${tycho.version}</version>
+      </plugin>
+    </plugins></pluginManagement>
+  </build>
+</project>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?pde version="3.8"?>
+<target name="Codex - EDT 2026.1 / Java 17" sequenceNumber="1">
+  <locations>
+    <!-- Репозитории релиза взяты из 1C-Company/dt-example-plugins, коммит 921c30c.
+         Плагину не нужны компоненты редактирования метаданных и запуска платформы. -->
+    <location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="slicer" includeSource="true" type="InstallableUnit">
+      <repository location="https://edt.1c.ru/downloads/releases/ruby/2026.1/"/>
+      <unit id="com._1c.g5.v8.dt.rcp" version="0.0.0"/>
+      <unit id="com._1c.g5.v8.dt.feature.feature.group" version="0.0.0"/>
+      <unit id="com._1c.g5.v8.dt.thirdparty.feature.group" version="0.0.0"/>
+    </location>
+    <location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="slicer" includeSource="true" type="InstallableUnit">
+      <repository location="https://download.eclipse.org/releases/2023-12/"/>
+      <unit id="org.eclipse.sdk.feature.group" version="0.0.0"/>
+      <!-- Реализация, необходимая для совместимого набора библиотек Hamcrest. -->
+      <unit id="org.hamcrest" version="0.0.0"/>
+    </location>
+  </locations>
+  <environment><os>win32</os><ws>win32</ws><arch>x86_64</arch></environment>
+</target>

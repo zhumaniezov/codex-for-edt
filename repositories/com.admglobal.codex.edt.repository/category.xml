@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+  <feature id="com.admglobal.codex.edt.feature">
+    <category name="com.admglobal.codex.category"/>
+  </feature>
+  <category-def name="com.admglobal.codex.category" label="ADM Global">
+    <description>Codex for 1C:EDT</description>
+  </category-def>
+</site>
+

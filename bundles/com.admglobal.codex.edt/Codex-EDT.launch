@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launchConfiguration type="org.eclipse.pde.ui.RuntimeWorkbench">
+  <booleanAttribute key="append.args" value="true"/>
+  <booleanAttribute key="automaticAdd" value="true"/>
+  <booleanAttribute key="automaticValidate" value="true"/>
+  <booleanAttribute key="clearConfig" value="false"/>
+  <booleanAttribute key="clearws" value="false"/>
+  <booleanAttribute key="default" value="true"/>
+  <booleanAttribute key="includeOptional" value="true"/>
+  <stringAttribute key="location" value="${project_loc:com.admglobal.codex.edt}/../../.runtime/pde-edt-workspace"/>
+  <stringAttribute key="org.eclipse.jdt.launching.JRE_CONTAINER" value="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17"/>
+  <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-os ${target.os} -ws ${target.ws} -arch ${target.arch} -nl ru -pluginCustomization ${project_loc:com.admglobal.codex.edt}/../../scripts/development-preferences.ini -consoleLog"/>
+  <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.eclipse.pde.ui.workbenchClasspathProvider"/>
+  <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Xms80m -Xmx4g -Duser.home=${project_loc:com.admglobal.codex.edt}/../../.runtime/pde-user-home -Dosgi.requiredJavaVersion=17 --add-modules=ALL-SYSTEM --add-opens=java.base/java.lang.constant=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.ref=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED -XX:+UseG1GC -XX:+UseStringDeduplication -Dlog4j.configuration=platform:/plugin/com._1c.g5.v8.dt.logging/log4j.properties -Dlog4j.formatMsgNoLookups=true -Dlog4j2.formatMsgNoLookups=true -Dorg.osgi.framework.bundle.parent=ext -Dosgi.module.lock.timeout=240 -De1c.dt.monitoring.host= -De1c.wiring.managedInitialization=true -Dorg.eclipse.e4.ui.css.theme.disableOSDarkThemeInherit=true"/>
+  <stringAttribute key="pde.version" value="3.3"/>
+  <stringAttribute key="product" value="com._1c.g5.v8.dt.product.application.rcp"/>
+  <booleanAttribute key="tracing" value="false"/>
+  <booleanAttribute key="useCustomFeatures" value="false"/>
+  <booleanAttribute key="useDefaultConfig" value="true"/>
+  <booleanAttribute key="useDefaultConfigArea" value="true"/>
+  <booleanAttribute key="useProduct" value="true"/>
+</launchConfiguration>
