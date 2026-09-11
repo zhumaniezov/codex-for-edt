@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.protocol;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import static io.github.zhumaniezov.codex.edt.protocol.CodexProtocol.*;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -47,20 +48,20 @@ public final class CodexAppServerClient implements AutoCloseable {
         String key = idKey(id);
         var future = new CompletableFuture<JsonObject>();
         if (closed.get()) {
-            future.completeExceptionally(new IOException("Codex App Server отключён."));
+            future.completeExceptionally(new IOException(tr("text088")));
             return future;
         }
         pending.put(key, future);
         if (closed.get()) {
             pending.remove(key, future);
-            future.completeExceptionally(new IOException("Codex App Server отключён."));
+            future.completeExceptionally(new IOException(tr("text088")));
             return future;
         }
         try {
             var timer = timeouts.schedule(() -> {
                 if (pending.remove(key, future)) {
-                    future.completeExceptionally(new IOException("Истекло время ожидания " + method + "."));
-                    fail(new IOException("Codex не ответил на " + method + "."));
+                    future.completeExceptionally(new IOException(tr("text089") + method + "."));
+                    fail(new IOException(tr("text090") + method + "."));
                 }
             }, timeout.toMillis(), TimeUnit.MILLISECONDS);
             future.whenComplete((result, error) -> timer.cancel(false));
@@ -81,8 +82,8 @@ public final class CodexAppServerClient implements AutoCloseable {
                 String method = string(message, "method");
                 if (message.has("id")) {
                     process.write(object("id", message.get("id"), "error",
-                        object("code", -32601, "message", "Клиент EDT не разрешает это действие в режиме чтения.")).toString());
-                    fail(new IOException("Codex запросил неподдерживаемое действие: " + method));
+                        object("code", -32601, "message", tr("text091"))).toString());
+                    fail(new IOException(tr("text092") + method));
                     return;
                 }
                 JsonObject params = message.has("params") && message.get("params").isJsonObject()
@@ -91,10 +92,10 @@ public final class CodexAppServerClient implements AutoCloseable {
                 return;
             }
             if (!message.has("id") || message.has("result") == message.has("error")) {
-                throw new IOException("Некорректный ответ JSON-RPC.");
+                throw new IOException(tr("text093"));
             }
             if (message.has("error") && !message.get("error").isJsonObject()) {
-                throw new IOException("Некорректная ошибка JSON-RPC.");
+                throw new IOException(tr("text094"));
             }
             String key = idKey(message.get("id"));
             var future = pending.get(key);
@@ -107,10 +108,10 @@ public final class CodexAppServerClient implements AutoCloseable {
                 } else if (message.get("result").isJsonObject()) {
                     future.complete(message.getAsJsonObject("result"));
                 } else {
-                    future.completeExceptionally(new IOException("Неожиданный тип результата Codex RPC."));
+                    future.completeExceptionally(new IOException(tr("text095")));
                 }
             } catch (RuntimeException error) {
-                future.completeExceptionally(new IOException("Некорректный ответ Codex RPC."));
+                future.completeExceptionally(new IOException(tr("text096")));
                 throw error;
             } finally {
                 pending.remove(key, future);
@@ -124,7 +125,7 @@ public final class CodexAppServerClient implements AutoCloseable {
             if (value.isString()) { return "s:" + value.getAsString(); }
             if (value.isNumber()) { return "n:" + value.getAsBigDecimal().toBigIntegerExact(); }
         }
-        throw new IllegalArgumentException("Неверный ID JSON-RPC.");
+        throw new IllegalArgumentException(tr("text097"));
     }
 
     private void fail(Throwable error) {
@@ -144,7 +145,7 @@ public final class CodexAppServerClient implements AutoCloseable {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            pending.values().forEach(f -> f.completeExceptionally(new IOException("Соединение закрыто.")));
+            pending.values().forEach(f -> f.completeExceptionally(new IOException(tr("text098"))));
             pending.clear();
         }
         process.close();

@@ -146,6 +146,9 @@ public class AppServerClientTest {
             assertEquals("Сообщить выводит ", updates.get(0));
             assertEquals("Сообщить выводит «Привет». thread-1", await(session.send(request)));
             var other = new ChatRequest("Объясни", new EditorContext("Другой", "", "", second.toString()));
+            assertThrows(ExecutionException.class, () -> await(session.send(other)));
+            assertEquals("thread-1", session.snapshot().threadId());
+            await(session.newThread());
             assertTrue(await(session.send(other)).endsWith("thread-2"));
         } finally { Files.delete(first); Files.delete(second); }
     }

@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.context;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.util.Objects;
 
 /** Передаёт клиенту данные без ссылок на живые объекты Eclipse. */
@@ -12,6 +13,6 @@ public record EditorContext(String projectName, String modulePath, String select
     public EditorContext {
         Objects.requireNonNull(projectName); Objects.requireNonNull(modulePath);
         Objects.requireNonNull(selectedText); Objects.requireNonNull(projectDirectory);
-        if (dirty && buffer == null) { throw new IllegalArgumentException("Dirty-редактор требует снимка документа."); }
+        if (dirty && buffer == null) { throw new IllegalArgumentException(tr("text079")); }
     }
 }

@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.client;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 
@@ -21,7 +22,7 @@ public interface CodexClient extends AutoCloseable {
     }
     default CompletionStage<Void> newThread() { return java.util.concurrent.CompletableFuture.completedFuture(null); }
     default CompletionStage<SessionData.HistoryPage> resume(String id) {
-        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException("Resume недоступен"));
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException(tr("text051")));
     }
     default CompletionStage<SessionData.HistoryPage> history(String cursor) {
         return java.util.concurrent.CompletableFuture.completedFuture(new SessionData.HistoryPage(java.util.List.of(), ""));
@@ -31,7 +32,11 @@ public interface CodexClient extends AutoCloseable {
     }
     default CompletionStage<Void> interrupt() { return java.util.concurrent.CompletableFuture.completedFuture(null); }
     default CompletionStage<Void> logout() {
-        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException("Выход недоступен"));
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException(tr("text052")));
+    }
+
+    default CompletionStage<com.google.gson.JsonObject> manage(io.github.zhumaniezov.codex.edt.settings.ManagementRequest request, com.google.gson.JsonObject params) {
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException(tr("unavailable")));
     }
 
     interface Listener {

@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.process;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -37,7 +38,7 @@ public final class CodexProcessManager implements AutoCloseable {
         daemon(() -> {
             try {
                 readLines(process.getInputStream(), stdout);
-                if (!closing.get()) { disconnected.accept(new IOException("Codex App Server закрыл STDOUT.")); }
+                if (!closing.get()) { disconnected.accept(new IOException(tr("text084"))); }
             } catch (Exception error) {
                 if (!closing.get()) { disconnected.accept(error); }
             }
@@ -45,7 +46,7 @@ public final class CodexProcessManager implements AutoCloseable {
         daemon(() -> {
             try { readLines(process.getErrorStream(), stderr); }
             catch (Exception error) {
-                if (!closing.get()) { stderr.accept("Не удалось прочитать STDERR Codex."); }
+                if (!closing.get()) { stderr.accept(tr("text085")); }
             }
         }, "codex-edt-stderr").start();
     }
@@ -68,16 +69,16 @@ public final class CodexProcessManager implements AutoCloseable {
                     if (!line.isEmpty()) { consumer.accept(line.toString()); }
                     line.setLength(0);
                 } else {
-                    if (line.length() >= 2 * 1024 * 1024) { throw new IOException("Слишком длинная строка JSONL Codex."); }
+                    if (line.length() >= 2 * 1024 * 1024) { throw new IOException(tr("text086")); }
                     line.append((char) value);
                 }
             }
-            if (!line.isEmpty()) { throw new IOException("Незавершённая строка JSONL при закрытии Codex."); }
+            if (!line.isEmpty()) { throw new IOException(tr("text087")); }
         }
     }
 
     public synchronized void write(String line) throws IOException {
-        if (closing.get() || !process.isAlive()) { throw new IOException("Codex App Server отключён."); }
+        if (closing.get() || !process.isAlive()) { throw new IOException(tr("text088")); }
         writer.write(line);
         writer.newLine();
         writer.flush();

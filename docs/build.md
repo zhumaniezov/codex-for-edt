@@ -181,9 +181,9 @@ Harness запускает Eclipse workbench без автоматических
 - **Codex отключён / ошибка** — подробности в **Window → Show View → Error Log**, затем **Повторить подключение**. Не включайте полный доступ для исправления ошибки.
 - **У проекта нет физического каталога** — откройте файловый проект EDT; путь вида `/Проект/src/...` является путём ресурса Eclipse и не подходит для cwd.
 
-## Настройки панели 0.3
+## Настройки панели 0.4
 
-**⋯ → Codex for 1C:EDT** (либо Window → Preferences) открывает настройки Enter и диагностики. Они сохраняются только в Eclipse workspace. Выбор модели и reasoning действует в текущей сессии и не переписывает `~/.codex/config.toml`.
+Кнопка настроек (ползунки) либо Window → Preferences открывает дерево Codex for 1C:EDT. Язык, Enter, auto-open и диагностика сохраняются в Eclipse workspace. Отдельные страницы Codex/MCP работают через официальный config API; запись требует явного подтверждения. Выбор модели в composer относится к текущей сессии. См. [settings.md](settings.md).
 
 Для продолжения чата выберите строку в «Чаты». Если его проект находится в другом каталоге, откройте соответствующий модуль; если каталог удалён или недоступен, resume даст ошибку. Занятый другим клиентом thread может быть недоступен для возобновления — завершите работу с ним в исходном клиенте, не завершайте чужие процессы.
 
@@ -195,12 +195,17 @@ Maven location поддерживается современной PDE. Если
 После сборки выполните с новым ASCII-именем проверки:
 
 ```powershell
-.\scripts\start-dev-edt.ps1 -Smoke -RestartPhase seed -RestartName restore-031 -CodexExecutable 'C:\projects\codex-edt\.runtime\missing-codex.exe'
-.\scripts\start-dev-edt.ps1 -Smoke -RestartPhase restore -RestartName restore-031 -CodexExecutable 'C:\projects\codex-edt\.runtime\missing-codex.exe'
+.\scripts\start-dev-edt.ps1 -Smoke -RestartPhase seed -RestartName restore-040 -CodexExecutable 'C:\projects\codex-edt\.runtime\missing-codex.exe'
+.\scripts\start-dev-edt.ps1 -Smoke -RestartPhase restore -RestartName restore-040 -CodexExecutable 'C:\projects\codex-edt\.runtime\missing-codex.exe'
 ```
 
-Первый процесс открывает View и завершает EDT, оставляя панель открытой. Второй использует ту же `.runtime/edt-restart-restore-031/workspace` и проверяет уже восстановленную панель. Несуществующий executable намеренно проверяет независимость UI от подключения. Для проверки реального подключения уберите `-CodexExecutable`. Эти команды не очищают persisted state.
+Первый процесс открывает View и завершает EDT, оставляя панель открытой. Второй использует ту же `.runtime/edt-restart-restore-040/workspace` и проверяет уже восстановленную панель. Несуществующий executable намеренно проверяет независимость UI от подключения. Для проверки реального подключения уберите `-CodexExecutable`. Эти команды не очищают persisted state.
 
 Файлы результата: `result-seed.txt`, `result-restore.txt`; stdout/stderr сохраняются раздельно в `edt-<phase>.log` и `edt-<phase>.stderr.log`. Скрипт запускает процесс скрытым штатным `Start-Process` и проверяет завершение и результат. Это также устраняет ложную остановку PowerShell 5.1 на предупреждениях Java из stderr. В обычном smoke логи называются `edt.log` и `edt.stderr.log`.
 
 Для диагностики копии настоящего EDT-проекта есть `-RestartProject 'имя проекта'`: на seed импортируется уже подготовленный каталог проекта внутри этой тестовой workspace. Настройка предназначена только для изолированной копии без подключений к информационным базам. Имя передаётся в диагностический JVM-параметр через UTF-8/Base64, чтобы Java 17 на Windows не исказила кириллицу в аргументном файле. Производственная View не использует этот параметр.
+
+
+## Ресурсы иконок
+
+Для обычной Java/Tycho сборки Node.js не нужен: SVG и готовые PNG входят в проект. Для изменения artwork можно выполнить `node scripts/generate-icons.cjs` с доступным модулем sharp (в этой работе использован уже установленный runtime). Генератор читает SVG и создаёт каждый размер отдельно; ничего не скачивает и не устанавливает. Лицензия оригинальных иконок: `icons/LICENSE.txt`.

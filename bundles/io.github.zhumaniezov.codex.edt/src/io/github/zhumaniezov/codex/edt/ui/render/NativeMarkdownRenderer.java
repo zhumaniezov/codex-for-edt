@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.ui.render;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,7 +26,10 @@ public final class NativeMarkdownRenderer implements ResponseRenderer {
     private boolean scheduled;
     private MarkdownDocument document = new MarkdownDocument("", java.util.List.of());
 
-    public NativeMarkdownRenderer(Composite parent) {
+    private final java.util.function.Consumer<String> openLink;
+    public NativeMarkdownRenderer(Composite parent) { this(parent, link -> { }); }
+    public NativeMarkdownRenderer(Composite parent, java.util.function.Consumer<String> openLink) {
+        this.openLink = openLink;
         display = parent.getDisplay();
         text = new StyledText(parent, SWT.MULTI | SWT.WRAP | SWT.V_SCROLL | SWT.READ_ONLY);
         text.setData("codex.role", "response");
@@ -36,11 +40,22 @@ public final class NativeMarkdownRenderer implements ResponseRenderer {
             int offset = text.getOffsetAtPoint(new Point(event.x, event.y));
             if (offset < 0) { return; }
             document.spans().stream().filter(span -> offset >= span.start() && offset < span.start() + span.length())
-                .map(span -> span.style().link()).filter(MarkdownDocument::safeLink).findFirst().ifPresent(link -> {
-                    try { PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(java.net.URI.create(link).toURL()); }
-                    catch (Exception error) { CodexPlugin.log("Не удалось открыть ссылку", error); }
-                });
+                .map(span -> span.style().link()).filter(value -> !value.isBlank()).findFirst().ifPresent(openLink);
+
         });
+        new io.github.zhumaniezov.codex.edt.ui.ThemeService(text, () -> { if (!closed) { apply(document); } });
+        var menu = new org.eclipse.swt.widgets.Menu(text); text.setMenu(menu);
+        var copy = new org.eclipse.swt.widgets.MenuItem(menu, SWT.PUSH); copy.setText(tr("copy")); copy.addListener(SWT.Selection, event -> text.copy());
+        var answer = new org.eclipse.swt.widgets.MenuItem(menu, SWT.PUSH); answer.setText(tr("copyAnswer"));
+        answer.addListener(SWT.Selection, event -> copy(String.valueOf(text.getData("codex.answer"))));
+        var code = new org.eclipse.swt.widgets.MenuItem(menu, SWT.PUSH); code.setText(tr("copyCode"));
+        code.addListener(SWT.Selection, event -> document.spans().stream().filter(span -> span.style().code()
+            && text.getCaretOffset() >= span.start() && text.getCaretOffset() <= span.start() + span.length()).findFirst()
+            .ifPresent(span -> copy(document.text().substring(span.start(), span.start() + span.length()))));
+        var open = new org.eclipse.swt.widgets.MenuItem(menu, SWT.PUSH); open.setText(tr("openLink"));
+        open.addListener(SWT.Selection, event -> document.spans().stream().filter(span -> !span.style().link().isBlank()
+            && text.getCaretOffset() >= span.start() && text.getCaretOffset() <= span.start() + span.length()).findFirst()
+            .ifPresent(span -> openLink.accept(span.style().link())));
         text.addListener(SWT.MouseMove, event -> {
             int offset = text.getOffsetAtPoint(new Point(event.x, event.y));
             String link = document.spans().stream().filter(span -> offset >= span.start() && offset < span.start() + span.length())
@@ -48,6 +63,11 @@ public final class NativeMarkdownRenderer implements ResponseRenderer {
             text.setToolTipText(link);
             text.setCursor(link == null ? null : display.getSystemCursor(SWT.CURSOR_HAND));
         });
+    }
+    private void copy(String value) {
+        var clipboard = new org.eclipse.swt.dnd.Clipboard(display);
+        try { clipboard.setContents(new Object[] {value}, new org.eclipse.swt.dnd.Transfer[] {org.eclipse.swt.dnd.TextTransfer.getInstance()}); }
+        finally { clipboard.dispose(); }
     }
     @Override public Control control() { return text; }
     @Override public void render(String markdown) {
@@ -62,9 +82,9 @@ public final class NativeMarkdownRenderer implements ResponseRenderer {
             String source = pending.getAndSet(null);
             executor.execute(() -> {
                 MarkdownDocument parsed;
-                try { parsed = MarkdownDocument.parse(source); }
+                try { parsed = MarkdownDocument.parse(source, link -> MarkdownDocument.safeLink(link) || FileLinkTarget.candidate(link)); }
                 catch (RuntimeException | StackOverflowError error) {
-                    CodexPlugin.log("Markdown показан без оформления", error);
+                    CodexPlugin.log(tr("text042"), error);
                     parsed = new MarkdownDocument(source, java.util.List.of());
                 }
                 var result = parsed;
@@ -88,7 +108,7 @@ public final class NativeMarkdownRenderer implements ResponseRenderer {
                 var style = span.style();
                 var range = new StyleRange(); range.start = span.start(); range.length = span.length();
                 range.fontStyle = (style.bold() ? SWT.BOLD : SWT.NORMAL) | (style.italic() ? SWT.ITALIC : SWT.NORMAL);
-                if (style.code()) { range.font = JFaceResources.getTextFont(); }
+                if (style.code()) { range.font = JFaceResources.getTextFont(); range.background = text.getParent().getBackground(); }
                 if (!style.link().isBlank()) { range.foreground = display.getSystemColor(SWT.COLOR_LINK_FOREGROUND); range.underline = true; }
                 styles.add(range);
             }

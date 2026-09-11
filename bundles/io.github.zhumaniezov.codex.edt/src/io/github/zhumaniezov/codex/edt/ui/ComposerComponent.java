@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.ui;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.util.List;
 import java.util.function.BiConsumer;
 import org.eclipse.swt.SWT;
@@ -24,13 +25,14 @@ final class ComposerComponent {
         var input = new Composite(frame, SWT.NONE); input.setLayout(new FormLayout());
         var layout = new GridData(SWT.FILL, SWT.FILL, true, false); layout.heightHint = 72; layout.widthHint = 240; input.setLayoutData(layout);
         prompt = new Text(input, SWT.MULTI | SWT.WRAP | SWT.V_SCROLL);
-        prompt.setMessage("Спросите Codex"); prompt.setTextLimit(32768); prompt.setData("codex.role", "prompt");
+        prompt.setMessage(tr("text006")); prompt.setTextLimit(32768); prompt.setData("codex.role", "prompt");
         var inputData = new FormData(); inputData.left = new FormAttachment(0); inputData.right = new FormAttachment(100);
         inputData.top = new FormAttachment(0); inputData.bottom = new FormAttachment(100); prompt.setLayoutData(inputData);
         // Многострочный Windows Text не рисует setMessage: подсказка остаётся native SWT.
-        var placeholder = new Label(input, SWT.NONE); placeholder.setText("Спросите Codex"); placeholder.setData("codex.role", "placeholder");
+        var placeholder = new Label(input, SWT.NONE); placeholder.setText(tr("text006")); placeholder.setData("codex.role", "placeholder");
         placeholder.setBackground(prompt.getBackground());
         placeholder.setForeground(prompt.getForeground());
+        new ThemeService(placeholder, () -> { placeholder.setBackground(prompt.getBackground()); placeholder.setForeground(prompt.getForeground()); });
         var hintData = new FormData(); hintData.left = new FormAttachment(0, 5); hintData.top = new FormAttachment(0, 4);
         placeholder.setLayoutData(hintData); placeholder.moveAbove(prompt);
         prompt.addModifyListener(event -> { if (!placeholder.isDisposed()) { placeholder.setVisible(prompt.getText().isEmpty() && !prompt.isFocusControl()); } });
@@ -44,17 +46,17 @@ final class ComposerComponent {
                 if (ready && !busy && !prompt.getText().isBlank()) { submit.run(); }
             }
         });
-        context = new Label(frame, SWT.WRAP); context.setText("Только чтение");
+        context = new Label(frame, SWT.WRAP); context.setText(tr("text007"));
         context.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         var options = new Composite(frame, SWT.NONE); options.setLayout(new GridLayout(3, false));
         var optionData = new GridData(SWT.FILL, SWT.CENTER, true, false); optionData.widthHint = 0; options.setLayoutData(optionData);
         models = new Combo(options, SWT.READ_ONLY); models.setData("codex.role", "model");
-        models.setToolTipText("Модель");
-        var modelData = new GridData(SWT.FILL, SWT.CENTER, true, false); modelData.widthHint = 110; models.setLayoutData(modelData);
+        models.setToolTipText(tr("text008"));
+        var modelData = new GridData(SWT.FILL, SWT.CENTER, true, false); modelData.widthHint = 100; models.setLayoutData(modelData);
         efforts = new Combo(options, SWT.READ_ONLY); efforts.setData("codex.role", "reasoning");
-        efforts.setToolTipText("Рассуждение");
-        var effortData = new GridData(SWT.FILL, SWT.CENTER, true, false); effortData.widthHint = 100; efforts.setLayoutData(effortData);
-        send = new Button(options, SWT.PUSH); send.setData("codex.role", "send"); send.setText("↑"); send.setToolTipText("Отправить");
+        efforts.setToolTipText(tr("text009"));
+        var effortData = new GridData(SWT.FILL, SWT.CENTER, true, false); effortData.widthHint = 80; efforts.setLayoutData(effortData);
+        send = new Button(options, SWT.PUSH); send.setData("codex.role", "send"); IconResources.button(send, "send", tr("text010"));
         send.addListener(SWT.Selection, event -> { if (running) { stop.run(); } else { submit.run(); } });
         prompt.addModifyListener(event -> update());
         models.addListener(SWT.Selection, event -> {
@@ -83,15 +85,15 @@ final class ComposerComponent {
     }
     static String label(String effort) {
         return switch (effort) {
-            case "none" -> "Без рассуждения"; case "minimal" -> "Минимальное"; case "low" -> "Лёгкое";
-            case "medium" -> "Среднее"; case "high" -> "Высокое"; case "xhigh" -> "Очень высокое";
-            case "max" -> "Максимальное"; case "ultra" -> "Ультра"; default -> effort;
+            case "none" -> tr("text012"); case "minimal" -> tr("text013"); case "low" -> tr("text014");
+            case "medium" -> tr("text015"); case "high" -> tr("text016"); case "xhigh" -> tr("text017");
+            case "max" -> tr("text018"); case "ultra" -> tr("text019"); default -> effort;
         };
     }
-    void context(String value) { context.setText("Только чтение" + (value.isBlank() ? "" : " · " + value)); context.getParent().layout(true); }
+    void context(String value) { context.setText(tr("text007") + (value.isBlank() ? "" : " · " + value)); context.getParent().layout(true); }
     void state(boolean ready, boolean busy, boolean running) { this.ready = ready; this.busy = busy; this.running = running; update(); }
     private void update() {
-        send.setText(running ? "■" : "↑"); send.setToolTipText(running ? "Остановить" : "Отправить");
+        IconResources.change(send, running ? "stop" : "send"); send.setData("codex.running", running); send.setToolTipText(running ? tr("text011") : tr("text010"));
         send.setEnabled(running || ready && !busy && !prompt.getText().isBlank());
         models.setEnabled(ready && !busy && !catalog.isEmpty()); efforts.setEnabled(ready && !busy && !levels.isEmpty());
     }

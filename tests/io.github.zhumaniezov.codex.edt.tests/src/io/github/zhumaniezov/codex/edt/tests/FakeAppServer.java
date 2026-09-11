@@ -9,6 +9,8 @@ public final class FakeAppServer {
     private static final Gson JSON = new Gson();
     private static String mode;
     private static boolean initialized;
+    private static JsonObject settings = obj("model", "default-model", "model_reasoning_effort", "medium", "sandbox_mode", "read-only", "approval_policy", "never", "mcp_servers", obj("external", obj("enabled", true, "command", "example")));
+    private static int configVersion = 1;
     private static String cwd;
     private static int threads;
     private static int turns;
@@ -55,7 +57,7 @@ public final class FakeAppServer {
                 if (!request.has("method")) { continue; }
                 String method = request.get("method").getAsString();
                 JsonElement id = request.get("id");
-                JsonObject params = request.has("params") ? request.getAsJsonObject("params") : new JsonObject();
+                JsonObject params = request.has("params") && request.get("params").isJsonObject() ? request.getAsJsonObject("params") : new JsonObject();
                 if (method.equals("initialize")) {
                     if (mode.equals("slow-init")) { Thread.sleep(2000); }
                     check(params.getAsJsonObject("clientInfo").get("name").getAsString().equals("codex_edt"));
@@ -108,7 +110,31 @@ public final class FakeAppServer {
                         event("turn/completed", obj("threadId", activeThread, "turn", obj("id", activeTurn, "status", "interrupted")));
                     }
                     case "account/logout" -> { mode = "auth"; reply(id, obj()); }
-                    case "config/read" -> reply(id, obj("config", obj("mcp_servers", obj("external", obj("enabled", true)))));
+                    case "config/read" -> reply(id, obj("config", settings, "origins", obj(), "layers", List.of(obj("name", obj("type", "user", "file", "C:/example/config.toml"), "version", "v" + configVersion, "config", settings))));
+                    case "config/value/write", "config/batchWrite" -> {
+                        if (!params.get("expectedVersion").getAsString().equals("v" + configVersion)) {
+                            write(obj("id", id, "error", obj("code", -32000, "message", "ConfigVersionConflict"))); continue;
+                        }
+                        var edits = method.equals("config/value/write") ? List.of(params) : new java.util.ArrayList<JsonObject>();
+                        if (method.equals("config/batchWrite")) { params.getAsJsonArray("edits").forEach(edit -> edits.add(edit.getAsJsonObject())); }
+                        for (var edit : edits) {
+                            check(edit.get("mergeStrategy").getAsString().equals("replace"));
+                            String key = edit.get("keyPath").getAsString(); var value = edit.get("value");
+                            if (key.startsWith("mcp_servers.")) {
+                                var servers = settings.getAsJsonObject("mcp_servers"); key = key.substring("mcp_servers.".length());
+                                if (value.isJsonNull()) { servers.remove(key); } else { servers.add(key, value); }
+                            } else { check(key.equals("model") || key.equals("model_reasoning_effort")); settings.add(key, value); }
+                        }
+                        configVersion++; reply(id, obj("status", "ok", "version", "v" + configVersion));
+                    }
+                    case "mcpServerStatus/list" -> reply(id, obj("data", List.of(obj("name", "external", "authStatus", "unsupported", "runtimeStatus", "connected", "tools", obj("read", obj()), "resources", List.of(), "resourceTemplates", List.of()))));
+                    case "config/mcpServer/reload" -> reply(id, obj());
+                    case "mcpServer/oauth/login" -> reply(id, obj("authorizationUrl", "https://example.invalid/oauth"));
+                    case "skills/list" -> reply(id, obj("data", List.of(obj("cwd", "C:/example", "errors", List.of(), "skills", List.of(obj("name", "example-skill", "enabled", true, "description", "Example description", "path", "C:/example/SKILL.md", "scope", "user"))))));
+                    case "account/rateLimits/read" -> reply(id, obj("rateLimits", obj("primary", obj("usedPercent", 25, "windowDurationMins", 300, "resetsAt", 1900000000))));
+                    case "account/login/start" -> { check(params.get("type").getAsString().equals("chatgpt")); reply(id, obj("type", "chatgpt", "loginId", "login-1", "authUrl", "https://auth.openai.com/example")); }
+                    case "account/login/cancel" -> { check(params.get("loginId").getAsString().equals("login-1")); reply(id, obj("status", "canceled")); }
+
                     case "thread/start" -> {
                         check(params.get("sandbox").getAsString().equals("read-only"));
                         check(params.get("approvalPolicy").getAsString().equals("never"));

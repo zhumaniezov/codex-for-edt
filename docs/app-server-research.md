@@ -25,7 +25,7 @@ CLI помечает сам app-server и генератор схем как э�
 Один запрос `initialize` на соединение:
 
 ```json
-{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.3.1"}}}
+{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.4.0"}}}
 ```
 
 После успешного ответа — уведомление `initialized`, затем `account/read` с `refreshToken:false`. Версия clientInfo в реализации берётся из bundle.
@@ -136,3 +136,23 @@ MCP-серверы могут выполнять действия вне фай�
 11.09.2026 повторно подтверждён `codex-cli 0.153.4`. Сверены definitions сгенерированной схемы этой версии: `AgentMessageDeltaNotification` содержит обязательные `threadId`, `turnId`, `itemId`, `delta`; `ItemCompletedNotification` — `threadId`, `turnId`, `item` и `completedAtMs`; `TurnStartedNotification`/`TurnCompletedNotification` — `threadId` и `turn`; `ErrorNotification` — `threadId`, `turnId`, `error`, `willRetry`.
 
 Новые RPC не добавлены. `turn/interrupt` остаётся штатным способом Stop. Поздние события предыдущего turn отбрасываются по идентификаторам; завершённый item не открывается заново из-за поздней delta. Сгенерированные schema остаются вне Git. Реальное подключение после переноса фабрики из конструктора View проверяется теми же opt-in live-тестами через stdio; модель, auth и sandbox не изменены.
+
+
+## Stable Settings surface 0.4
+
+Повторно проверен CLI **0.153.4**, stdio transport. Использована сгенерированная этим executable схема и `codex-rs/app-server-protocol/src/protocol/common.rs` из `rust-v0.153.4`. У следующих методов нет experimental gate: `config/read`, `config/value/write`, `config/batchWrite`, `mcpServerStatus/list`, `config/mcpServer/reload`, `mcpServer/oauth/login`, `skills/list`, `skills/config/write`, `account/read`, `account/rateLimits/read`, `account/login/start`, `account/login/cancel`, `account/logout`.
+
+Новые вызовы ограничены enum ManagementRequest. Skills write найден, но не используется. MCP reload и rateLimits/read имеют unit/nullable params, передаётся null; JSON serializer сохраняет явный null для config delete. Config writes используют `expectedVersion` из user layer, `replace`, а удаление — `value:null`; семантика подтверждена `config_manager_service.rs::parse_value/apply_edits`.
+
+`McpServerStatus` имеет name, authStatus, tools/resources/resourceTemplates и необязательные runtimeStatus/serverInfo/pluginId. Transport и enabled получаются из config; runtimeStatus null остаётся неизвестным. Ошибка startup может поступать отдельным notification; детальная история таких ошибок пока не хранится, UI показывает доступное runtime state и ошибки RPC.
+
+`Account` предоставляет email/planType у ChatGPT, не display name. Лимиты: usedPercent, windowDurationMins, resetsAt; предпочтителен rateLimitsByLimitId. Nullable данные не означают нулевой расход. Browser login использует только `type:chatgpt`; auth tokens mode с пометкой INTERNAL не применяется. account/login/completed успешно завершает вход, после чего клиент повторяет соединение.
+
+Settings используют отдельный процесс без threads: один временный клиент на окно Preferences, закрываемый вместе с ним. Management MCP запрещён на клиенте, уже обслуживавшем threads. Shared config остаётся у Codex; readOnly и MCP disable overlay агентского процесса сохраняются.
+
+
+### Изоляция MCP management в 0.4
+
+Проверены публичные исходники `app-server/src/mcp_refresh.rs` (`reload_mcp_config`, тест `refresh_config_preserves_thread_mcp_overrides`) и `request_processors/thread_processor.rs` (сообщение `thread/resume overrides ignored for loaded thread`). Reload перечитывает MCP для loaded threads; новый сервер мог отсутствовать среди исходных disabled overrides. Поэтому Preferences используют отдельный owned process без threads, а management MCP на агентском клиенте запрещён. Глобальная конфигурация остаётся общей; файл не редактируется нашим Java-кодом. Код VS Code Extension не используется.
+
+Schema повторно сгенерирована установленным `codex-cli 0.153.4` в `.runtime/app-server-schema-stage4` 11.09.2026. Временные schema и сторонние исходники не публикуются.

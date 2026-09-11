@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.ui;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
@@ -10,14 +11,14 @@ final class StatusComponent {
     private final Label diagnostic;
     StatusComponent(Composite parent) {
         status = new Label(parent, SWT.WRAP); status.setData("codex.role", "status");
-        status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); status.setText(io.github.zhumaniezov.codex.edt.Messages.CONNECTING);
+        status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); status.setText(io.github.zhumaniezov.codex.edt.Messages.CONNECTING());
         diagnostic = new Label(parent, SWT.WRAP); diagnostic.setData("codex.role", "diagnostic");
         diagnostic.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); showDiagnostic();
     }
     void text(String text) { status.setText(text); status.getParent().layout(true); }
     void details(Snapshot value, String project) {
-        diagnostic.setText("Codex " + value.version() + "\nМодель: " + value.model() + " · " + value.effort()
-            + "\nПроект: " + project + "\n" + value.cwd() + "\nThread: " + value.threadId());
+        diagnostic.setText("Codex " + value.version() + tr("text101") + value.model() + " · " + value.effort()
+            + tr("text102") + project + "\n" + value.cwd() + "\nThread: " + value.threadId());
         status.setToolTipText(diagnostic.getText()); showDiagnostic();
     }
     void showDiagnostic() {

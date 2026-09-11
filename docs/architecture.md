@@ -1,4 +1,4 @@
-# Архитектура версии 0.3.1
+# Архитектура версии 0.4
 
 ## Слои
 
@@ -29,7 +29,7 @@ SWT-поток читает `IDocument` и обновляет controls; в нё�
 
 Состояния: `DISCONNECTED → CONNECTING → READY → WORKING → READY`; Stop проходит через `STOPPING → STOPPED`, из которого разрешён следующий Send. Ошибки дают `ERROR` либо `DISCONNECTED`, отсутствие входа — `AUTH_REQUIRED`. Повреждение JSONL, серверный запрос действия, EOF и зависание процесса отключают соединение. `error.willRetry:true` оставляет turn активным. Dispose закрывает собственный процесс и завершает pending futures.
 
-Markdown разбирается отдельно от SWT; обновления объединяются с задержкой 45 мс, устаревшая версия результата не применяется. Стили — непересекающиеся `StyleRange`; шрифты JFace, цвет ссылок — системный SWT. Ошибка parser переводит конкретный ответ в простой текст. HTML отображается буквально, изображения не загружаются, URI проверяются до открытия внешнего браузера по нажатию пользователя. Файловые и активные схемы ссылок заблокированы. При прокрутке вверх streaming не должен возвращать пользователя вниз.
+Markdown разбирается отдельно от SWT; обновления объединяются с задержкой 45 мс, устаревшая версия результата не применяется. Стили — непересекающиеся `StyleRange`; шрифты JFace, цвет ссылок — системный SWT. Ошибка parser переводит конкретный ответ в простой текст. HTML отображается буквально, изображения не загружаются, URI проверяются до открытия внешнего браузера по нажатию пользователя. Файловые ссылки проверяет FileLinkTarget: real path внутри текущего project cwd, существующий IFile; открытие через IDE.openEditor и ITextEditor.selectAndReveal. Активные схемы заблокированы. При прокрутке вверх streaming не должен возвращать пользователя вниз.
 
 ## Создание и закрытие View
 
@@ -73,10 +73,23 @@ XtextEditor 2.33 наследует TextEditor. Для чтения текста
 
 ## Авторизация, настройки и ограничения
 
-`account/read` — единственный источник информации об аккаунте. В UI используются доступные `email` и `planType`; токены не читаются и не хранятся. `account/logout` вызывается только по действию пользователя, с предупреждением об общей авторизации Codex. Вход пока через официальный `codex login` с последующим переподключением; `account/login/start` исследован, но browser login из EDT отложен.
+`account/read` — единственный источник информации об аккаунте. В UI используются доступные `email` и `planType`; токены не читаются и не хранятся. `account/logout` вызывается только по действию пользователя, с предупреждением об общей авторизации Codex. Browser login через `account/login/start` реализован на отдельной странице настроек; также доступен `codex login`. После изменения входа переподключите View.
 
-Общие Codex settings остаются у app-server. Плагин передаёт только выбранные модель/effort и обязательную политику данной сессии, не переписывая `config.toml`. `EdtPreferences` хранит Enter-to-send и диагностику в `InstanceScope` рабочей области Eclipse.
+Общие Codex settings остаются у app-server. Composer передаёт выбранные модель/effort и обязательную политику сессии. Отдельное явное сохранение в Preferences использует config API; TOML вручную не редактируется. `EdtPreferencesService` хранит язык, Enter, auto-open, контекст и диагностику в `InstanceScope` рабочей области Eclipse.
 
 Сохраняются `sandbox:read-only`, `approvalPolicy:never`, `approvalsReviewer:user` и `sandboxPolicy:{type:readOnly,networkAccess:false}`. MCP, hooks, плагины, приложения, browser/computer tools, notifications-команды и субагенты отключены для дочернего процесса/thread. Skills остаются доступными в рамках read-only sandbox. Неожиданные серверные запросы действий отклоняются; UI approvals отсутствует.
 
 JSONL и prompt не журналируются. STDERR и сообщения ошибок проходят редактирование типовых секретов, stack trace — в Error Log. Процесс закрывается по собственному Process/ProcessHandle и известным потомкам; чужие процессы по имени не завершаются. Предел RPC — 45 секунд, turn — пять минут. Сетевые/серверные ограничения показываются пользователю, а не обходятся.
+
+
+## Настройки, локализация и ресурсы 0.4
+
+`CodexSettingsService`, `McpService`, `AccountService`, `SkillsService` используют закрытый перечень stable RPC `ManagementRequest`. `EdtPreferencesService` хранит только настройки EDT в InstanceScope; `LocalizationService` выбирает UTF-8 ResourceBundle RU/EN по preference и Platform.getNL(). UI и бизнес-логика не читают TOML/credentials.
+
+`SettingsPage` выполняет операции асинхронно, проверяет dispose и отображает ошибки. `SettingsAccess` создаёт один отдельный клиент на окно Preferences и закрывает его с окном. Все дочерние страницы этого окна разделяют этот клиент; активная View владеет своим процессом. Настройки не создают threads. Это существенная граница: MCP reload в Codex 0.153.4 обновляет loaded threads, а resume loaded thread может игнорировать config overrides. Поэтому management MCP запрещён на клиенте, который уже обслуживал threads. Настройки меняют общий backend, но reload их процесса не затрагивает read-only диалог.
+
+`CodexSettingsService` разделяет effective config и user layer. Запись использует `expectedVersion`; MCP редактируется только из user layer, конфликт имени при добавлении отклоняется. JSON null сохраняется сериализатором для штатного удаления ключа. Модель/reasoning записываются атомарно, произвольный редактор config отсутствует. View продолжает использовать выбранную модель до переподключения; смена аккаунта в Settings требует переподключить View.
+
+`ThemeService` слушает SWT.Settings и IThemeManager, заимствует системные/родительские цвета и JFace fonts. `IconResources` использует ImageDescriptor с DPI-вариантами и LocalResourceManager на время жизни control; освобождение не затрагивает системные ресурсы. Исходные SVG оригинальны, PNG 16/24/32/48/64 экспортированы отдельно для двух тем. HTML/JS/WebView не используются.
+
+`AutoOpenCodex` opt-in по умолчанию выключен. Он асинхронно открывает View только при готовой page и отсутствии persisted View; стандартное восстановление Eclipse остаётся основным механизмом.

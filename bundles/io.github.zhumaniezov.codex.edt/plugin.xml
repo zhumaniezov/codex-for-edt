@@ -3,14 +3,21 @@
 <plugin>
   <extension point="org.eclipse.ui.views">
     <category id="io.github.zhumaniezov.codex.edt.category" name="Codex"/>
-    <view id="io.github.zhumaniezov.codex.edt.views.Codex" name="Codex"
+    <view id="io.github.zhumaniezov.codex.edt.views.Codex" name="Codex" icon="icons/codex.png"
         category="io.github.zhumaniezov.codex.edt.category"
         class="io.github.zhumaniezov.codex.edt.ui.CodexView" restorable="true" allowMultiple="false">
-      <description>Codex for 1C:EDT — потоковые ответы Codex App Server в режиме чтения.</description>
+      <description>%viewDescription</description>
     </view>
   </extension>
   <extension point="org.eclipse.ui.preferencePages">
     <page id="io.github.zhumaniezov.codex.edt.preferences" name="Codex for 1C:EDT"
         class="io.github.zhumaniezov.codex.edt.ui.EdtPreferences"/>
+    <page id="io.github.zhumaniezov.codex.edt.preferences.codex" name="%codex" category="io.github.zhumaniezov.codex.edt.preferences" class="io.github.zhumaniezov.codex.edt.ui.CodexPreferences"/>
+    <page id="io.github.zhumaniezov.codex.edt.preferences.mcp" name="%mcp" category="io.github.zhumaniezov.codex.edt.preferences" class="io.github.zhumaniezov.codex.edt.ui.McpPreferences"/>
+    <page id="io.github.zhumaniezov.codex.edt.preferences.account" name="%account" category="io.github.zhumaniezov.codex.edt.preferences" class="io.github.zhumaniezov.codex.edt.ui.AccountPreferences"/>
+    <page id="io.github.zhumaniezov.codex.edt.preferences.skills" name="%skills" category="io.github.zhumaniezov.codex.edt.preferences" class="io.github.zhumaniezov.codex.edt.ui.SkillsPreferences"/>
+    <page id="io.github.zhumaniezov.codex.edt.preferences.advanced" name="%advanced" category="io.github.zhumaniezov.codex.edt.preferences" class="io.github.zhumaniezov.codex.edt.ui.AdvancedPreferences"/>
+
   </extension>
+  <extension point="org.eclipse.ui.startup"><startup class="io.github.zhumaniezov.codex.edt.ui.AutoOpenCodex"/></extension>
 </plugin>

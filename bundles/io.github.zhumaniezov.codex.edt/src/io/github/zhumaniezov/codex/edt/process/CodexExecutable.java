@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.process;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -46,7 +47,7 @@ public final class CodexExecutable {
                 return validate(candidate);
             }
         }
-        throw new IOException("Codex executable не найден. Укажите путь через -CodexExecutable при запуске EDT.");
+        throw new IOException(tr("text080"));
     }
 
     private static long modified(Path path) {
@@ -56,7 +57,7 @@ public final class CodexExecutable {
 
     private static Path validate(Path path) throws IOException {
         if (!Files.isRegularFile(path) || !path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {
-            throw new IOException("Не найден исполняемый файл Codex .exe: " + path);
+            throw new IOException(tr("text081") + path);
         }
         return path.toRealPath();
     }
@@ -65,12 +66,12 @@ public final class CodexExecutable {
         Process process = new ProcessBuilder(executable.toString(), "--version").redirectErrorStream(true).start();
         try {
             if (!process.waitFor(8, TimeUnit.SECONDS)) {
-                throw new IOException("Codex не ответил на --version за 8 секунд.");
+                throw new IOException(tr("text082"));
             }
             String output = new String(process.getInputStream().readNBytes(8192), StandardCharsets.UTF_8);
             var matcher = java.util.regex.Pattern.compile("codex-cli ([0-9]+\\.[0-9]+\\.[0-9]+[^\\s]*)").matcher(output);
             if (process.exitValue() != 0 || !matcher.find()) {
-                throw new IOException("Выбранный файл не подтвердил версию Codex CLI.");
+                throw new IOException(tr("text083"));
             }
             return matcher.group(1);
         } finally {

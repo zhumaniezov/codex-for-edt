@@ -22,7 +22,7 @@ public final class CodexPlugin extends Plugin {
     }
 
     public static synchronized CodexClient createClient() {
-        if (instance == null) { throw new IllegalStateException(Messages.UNAVAILABLE); }
+        if (instance == null) { throw new IllegalStateException(Messages.UNAVAILABLE()); }
         var context = instance.getBundle().getBundleContext();
         var reference = context.getServiceReference(CodexClientFactory.class);
         CodexClient client;

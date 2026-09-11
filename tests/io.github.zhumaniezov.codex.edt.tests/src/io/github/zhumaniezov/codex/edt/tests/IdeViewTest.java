@@ -54,10 +54,10 @@ public class IdeViewTest {
             prompt.setText("Какой код сейчас находится в открытом модуле?");
             var enter = new Event(); enter.keyCode = SWT.CR; enter.doit = true;
             prompt.notifyListeners(SWT.KeyDown, enter); assertFalse(enter.doit);
-            waitFor(() -> session.snapshot().state() == State.WORKING && "■".equals(send.getText())
+            waitFor(() -> session.snapshot().state() == State.WORKING && Boolean.TRUE.equals(send.getData("codex.running"))
                 && response.getData("codex.streamingUpdates") instanceof Integer n && n > 0, 15, () -> { });
             assertEquals("", prompt.getText()); send.notifyListeners(SWT.Selection, new Event());
-            waitFor(() -> session.snapshot().state() == State.STOPPED && "↑".equals(send.getText()), 15, () -> { });
+            waitFor(() -> session.snapshot().state() == State.STOPPED && !Boolean.TRUE.equals(send.getData("codex.running")), 15, () -> { });
             assertTrue(session.processAlive()); assertEquals("thread-1", session.snapshot().threadId());
             String selection = "Сообщить(\"Привет\");";
             editor.getSelectionProvider().setSelection(new TextSelection(document, code.indexOf(selection), selection.length()));

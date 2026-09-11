@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.context;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.util.Locale;
 import java.nio.file.Path;
 import org.eclipse.core.resources.IFile;
@@ -48,7 +49,7 @@ public final class EclipseContextProvider implements ContextProvider {
         String selectedText = "";
         if (document != null && length > 0) {
             try { selectedText = document.get(offset, Math.min(length, 16000)); }
-            catch (org.eclipse.jface.text.BadLocationException error) { throw new IllegalStateException("Не удалось прочитать выделение.", error); }
+            catch (org.eclipse.jface.text.BadLocationException error) { throw new IllegalStateException(tr("text076"), error); }
         }
         var buffer = dirty ? EditorBuffer.capture(document, offset) : null;
         return new EditorContext(project, module, selectedText == null ? "" : selectedText,

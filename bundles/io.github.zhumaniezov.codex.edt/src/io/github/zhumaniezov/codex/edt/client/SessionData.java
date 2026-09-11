@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.client;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import static io.github.zhumaniezov.codex.edt.protocol.CodexProtocol.*;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -9,12 +10,12 @@ import com.google.gson.JsonObject;
 public final class SessionData {
     private SessionData() { }
     public enum State {
-        DISCONNECTED("Отключён"), CONNECTING("Подключение..."), READY("Подключён"),
-        WORKING("Codex работает..."), STOPPING("Остановка..."), STOPPED("Остановлено"),
-        AUTH_REQUIRED("Требуется вход"), ERROR("Ошибка");
+        DISCONNECTED("text026"), CONNECTING("text000"), READY("text027"),
+        WORKING("text028"), STOPPING("text029"), STOPPED("text030"),
+        AUTH_REQUIRED("text031"), ERROR("text025");
         private final String label;
         State(String label) { this.label = label; }
-        public String label() { return label; }
+        public String label() { return tr(label); }
         public boolean running() { return this == WORKING || this == STOPPING; }
     }
     public record Reasoning(String value, String description) { }
@@ -28,7 +29,7 @@ public final class SessionData {
     }
     public record Account(String type, String email, String plan) {
         public static final Account NONE = new Account("", "", "");
-        public String label() { return type.isEmpty() ? "Требуется вход" : email.isBlank() ? type : email; }
+        public String label() { return type.isEmpty() ? tr("text031") : email.isBlank() ? type : email; }
     }
     public record Snapshot(State state, String version, List<Model> models, String model, String effort,
             String threadId, String cwd, Account account) {
@@ -59,7 +60,7 @@ public final class SessionData {
             result.add(new Model(string(value, "model"), display.isBlank() ? string(value, "model") : display,
                 bool(value, "isDefault"), string(value, "defaultReasoningEffort"), efforts));
         }
-        if (result.isEmpty()) { throw new IOException("Codex не вернул доступные модели."); }
+        if (result.isEmpty()) { throw new IOException(tr("text072")); }
         return List.copyOf(result);
     }
     public static Model defaultModel(List<Model> values) {
@@ -77,7 +78,7 @@ public final class SessionData {
             if (thread.has("parentThreadId") && !thread.get("parentThreadId").isJsonNull()) { continue; }
             String title = string(thread, "name");
             if (title.isBlank()) { title = string(thread, "preview").replaceAll("\\s+", " ").strip(); }
-            if (title.isBlank()) { title = "Без названия"; }
+            if (title.isBlank()) { title = tr("text032"); }
             result.add(new ThreadSummary(string(thread, "id"), title.substring(0, Math.min(100, title.length())),
                 thread.has("updatedAt") ? thread.get("updatedAt").getAsLong() : 0, string(thread, "cwd")));
         }
@@ -104,7 +105,7 @@ public final class SessionData {
                     if (prompt.startsWith("[Контекст 1C:EDT]") && prompt.contains(marker)) {
                         prompt = prompt.substring(prompt.indexOf(marker) + marker.length());
                     }
-                    messages.add(new Message("Вы", prompt));
+                    messages.add(new Message(tr("text024"), prompt));
                 }
             }
         }

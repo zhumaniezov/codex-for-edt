@@ -38,8 +38,8 @@ final class DirtyLiveScenario {
             view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex"); var shell = view.getSite().getShell();
             var prompt = (Text) find(shell, "prompt"); var send = (Button) find(shell, "send");
             var response = (StyledText) find(shell, "response");
-            prompt.setText("Какой код сейчас находится в открытом модуле?"); waitFor(() -> send.isEnabled() && "↑".equals(send.getText()), 60, () -> { });
-            waitFor(() -> send.isEnabled() && "↑".equals(send.getText()), 15, () -> { });
+            prompt.setText("Какой код сейчас находится в открытом модуле?"); waitFor(() -> send.isEnabled() && !Boolean.TRUE.equals(send.getData("codex.running")), 60, () -> { });
+            waitFor(() -> send.isEnabled() && !Boolean.TRUE.equals(send.getData("codex.running")), 15, () -> { });
             send.notifyListeners(SWT.Selection, new Event());
             assertEquals("Вопрос должен быть отправлен через composer", "", prompt.getText());
             waitFor(() -> session.snapshot().state() == State.READY && response.getText().contains("Привет")
@@ -50,7 +50,7 @@ final class DirtyLiveScenario {
             String selected = "Сообщить(\"Привет\");";
             editor.getSelectionProvider().setSelection(new TextSelection(doc, code.indexOf(selected), selected.length()));
             prompt.setText("Что делает выделенный код и в каком контексте он находится?");
-            waitFor(() -> send.isEnabled() && "↑".equals(send.getText()), 15, () -> { });
+            waitFor(() -> send.isEnabled() && !Boolean.TRUE.equals(send.getData("codex.running")), 15, () -> { });
             send.notifyListeners(SWT.Selection, new Event());
             assertEquals("Вопрос должен быть отправлен через composer", "", prompt.getText());
             waitFor(() -> session.snapshot().state() == State.READY && response.getData("codex.streamingUpdates") instanceof Integer n && n > 0

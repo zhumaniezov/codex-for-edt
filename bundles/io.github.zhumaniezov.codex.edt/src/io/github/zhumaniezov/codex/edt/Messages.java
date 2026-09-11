@@ -1,14 +1,11 @@
 package io.github.zhumaniezov.codex.edt;
-
-import java.util.ResourceBundle;
-
-/** Общие сообщения жизненного цикла панели. */
+import io.github.zhumaniezov.codex.edt.settings.LocalizationService;
+/** Совместимые имена сообщений жизненного цикла. */
 public final class Messages {
-    private static final ResourceBundle TEXT = ResourceBundle.getBundle("io.github.zhumaniezov.codex.edt.messages");
-    public static final String CONNECTING = TEXT.getString("connecting");
-    public static final String CONNECTION_ERROR = TEXT.getString("connectionError");
-    public static final String RECONNECT = TEXT.getString("reconnect");
-    public static final String CLOSED = TEXT.getString("closed");
-    public static final String UNAVAILABLE = TEXT.getString("unavailable");
-    private Messages() { }
+ private Messages() { }
+ public static String CONNECTING() { return LocalizationService.tr("text000"); }
+ public static String CONNECTION_ERROR() { return LocalizationService.tr("text001"); }
+ public static String RECONNECT() { return LocalizationService.tr("text002"); }
+ public static String CLOSED() { return LocalizationService.tr("text003"); }
+ public static String UNAVAILABLE() { return LocalizationService.tr("text004"); }
 }

@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.ui.render;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,11 +21,16 @@ public record MarkdownDocument(String text, List<Span> spans) {
         } catch (IllegalArgumentException error) { return false; }
     }
     public static MarkdownDocument parse(String source) {
-        var builder = new Builder();
+        return parse(source, MarkdownDocument::safeLink);
+    }
+    public static MarkdownDocument parse(String source, java.util.function.Predicate<String> links) {
+        var builder = new Builder(links);
         builder.walk(Parser.builder().build().parse(source), Style.PLAIN, 0);
         return new MarkdownDocument(builder.text.toString(), List.copyOf(builder.spans));
     }
     private static final class Builder {
+        final java.util.function.Predicate<String> links;
+        Builder(java.util.function.Predicate<String> links) { this.links = links; }
         final StringBuilder text = new StringBuilder();
         final List<Span> spans = new ArrayList<>();
         void append(String value, Style style) {
@@ -33,7 +39,7 @@ public record MarkdownDocument(String text, List<Span> spans) {
         }
         void newline() { if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') { append("\n", Style.PLAIN); } }
         void walk(Node node, Style style, int depth) {
-            if (depth > 128) { append("[Слишком глубокая вложенность Markdown]", Style.PLAIN); return; }
+            if (depth > 128) { append(tr("text043"), Style.PLAIN); return; }
             if (node instanceof Text value) { append(value.getLiteral(), style); return; }
             if (node instanceof Code value) { append(value.getLiteral(), new Style(style.bold(), style.italic(), true, style.link())); return; }
             if (node instanceof FencedCodeBlock value) { newline(); append(value.getLiteral(), new Style(false, false, true, "")); newline(); return; }
@@ -44,7 +50,7 @@ public record MarkdownDocument(String text, List<Span> spans) {
             if (node instanceof ThematicBreak) { newline(); append("────────\n", style); return; }
             if (node instanceof StrongEmphasis || node instanceof Heading) { style = new Style(true, style.italic(), style.code(), style.link()); }
             if (node instanceof Emphasis) { style = new Style(style.bold(), true, style.code(), style.link()); }
-            if (node instanceof Link link && safeLink(link.getDestination())) { style = new Style(style.bold(), style.italic(), style.code(), link.getDestination()); }
+            if (node instanceof Link link && links.test(link.getDestination())) { style = new Style(style.bold(), style.italic(), style.code(), link.getDestination()); }
             if (node instanceof ListItem) {
                 newline();
                 int number = 1;

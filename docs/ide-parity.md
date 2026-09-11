@@ -60,3 +60,25 @@ Markdown разбирается в AST и отображается через `S
 ## Результат реализации
 
 Версия 0.3 реализует перечисленные в колонке третьего этапа функции: история и resume, New Thread, динамические модель/reasoning, Stop, composer с EDT Preferences, account/read/logout, dirty-буфер и native Markdown. Browser login и queue/steer оставлены будущему этапу. Данные о сборке, настоящем end-to-end и отдельной ручной приёмке BSL — в [testing.md](testing.md). Общая авторизация, настройки и Skills остаются у Codex.
+
+
+## Четвёртый этап: 0.4
+
+Baseline перед работой — **ea2b186**, принятая автором 0.3.1. Существующая таблица выше сохраняет историю третьего этапа.
+
+| Функция официального IDE | Реализация 0.4 в EDT | Ограничение |
+|---|---|---|
+| Header, Settings, account | Компактные native кнопки с SVG-derived DPI иконками и tooltip | Собственная оригинальная иконка, не официальный OpenAI asset |
+| Локализация | RU/EN resources; override языка в Eclipse Preferences | Закрыть/открыть View и страницы |
+| Общие settings | config/read и versioned config writes | Только defaults model/reasoning и MCP; read-only не переключается |
+| MCP | Catalog/status/config CRUD/reload/OAuth через stable RPC | MCP tools в диалогах EDT отключены |
+| Account | account/read, rateLimits/read, login/start/cancel, logout | Нет управления подпиской и credentials |
+| Skills | skills/list | Просмотр, без переключения |
+| Темы | Цвета controls из EDT, JFace fonts, theme-aware изображения | Ручная проверка обеих EDT themes обязательна |
+| Markdown | Native StyledText, code/inline emphasis, копирование, ссылки | Без HTML/JS/WebView; изображения не загружаются |
+| Файловая навигация | public IDE.openEditor, IFile, проверка real path | Только файл текущего проекта, доступный в workspace |
+| Чаты / Stop / context | Сохранены model/reasoning/thread/turn/dirty-buffer | Смена проекта требует явного нового чата |
+| Auto-open | Opt-in Eclipse startup после появления UI | По умолчанию штатный restore state |
+| Запись, diff, approvals | Не реализованы | Следующий этап требует отдельного решения |
+
+UX исследован по [официальному IDE](https://learn.chatgpt.com/docs/codex/ide), [editor context](https://learn.chatgpt.com/docs/prompting), [developer settings](https://learn.chatgpt.com/docs/developer-settings), [models](https://learn.chatgpt.com/docs/models), [projects/threads](https://learn.chatgpt.com/docs/projects), [permissions](https://learn.chatgpt.com/docs/agent-approvals-security) и связанным материалам в [settings.md](settings.md). OpenVSX использован только как metadata/визуальный референс; код VS Code extension не копировался. Исследование других EDT-интеграций: [edt-ai-references.md](edt-ai-references.md).

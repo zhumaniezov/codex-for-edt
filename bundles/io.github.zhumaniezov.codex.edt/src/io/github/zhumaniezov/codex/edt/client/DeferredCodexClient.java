@@ -26,11 +26,11 @@ public final class DeferredCodexClient implements CodexClient {
     }
 
     private CodexClient client() throws IOException {
-        if (closed) { throw new IOException(Messages.CLOSED); }
+        if (closed) { throw new IOException(Messages.CLOSED()); }
         if (delegate == null) {
             var created = java.util.Objects.requireNonNull(factory.get());
             synchronized (this) {
-                if (closed) { release.accept(created); throw new IOException(Messages.CLOSED); }
+                if (closed) { release.accept(created); throw new IOException(Messages.CLOSED()); }
                 delegate = created;
             }
             created.setListener(new Listener() {
@@ -45,7 +45,7 @@ public final class DeferredCodexClient implements CodexClient {
     private <T> CompletionStage<T> call(Function<CodexClient, CompletionStage<T>> operation) {
         var future = new CompletableFuture<T>(); pending.add(future);
         future.whenComplete((value, error) -> pending.remove(future));
-        if (closed) { future.completeExceptionally(new IOException(Messages.CLOSED)); return future; }
+        if (closed) { future.completeExceptionally(new IOException(Messages.CLOSED())); return future; }
         try {
             executor.execute(() -> {
                 try {
@@ -54,7 +54,7 @@ public final class DeferredCodexClient implements CodexClient {
                     });
                 } catch (Throwable error) { future.completeExceptionally(error); }
             });
-        } catch (RejectedExecutionException error) { future.completeExceptionally(new IOException(Messages.CLOSED, error)); }
+        } catch (RejectedExecutionException error) { future.completeExceptionally(new IOException(Messages.CLOSED(), error)); }
         return future;
     }
 
@@ -75,13 +75,17 @@ public final class DeferredCodexClient implements CodexClient {
     @Override public CompletionStage<Void> interrupt() { return call(CodexClient::interrupt); }
     @Override public CompletionStage<Void> logout() { return call(CodexClient::logout); }
 
+    @Override public CompletionStage<com.google.gson.JsonObject> manage(io.github.zhumaniezov.codex.edt.settings.ManagementRequest request, com.google.gson.JsonObject params) {
+        return call(client -> client.manage(request, params));
+    }
+
     @Override public void close() {
         CodexClient current;
         synchronized (this) {
             if (closed) { return; }
             closed = true; current = delegate; delegate = null;
         }
-        pending.forEach(future -> future.completeExceptionally(new IOException(Messages.CLOSED)));
+        pending.forEach(future -> future.completeExceptionally(new IOException(Messages.CLOSED())));
         executor.shutdownNow();
         if (current != null) { release.accept(current); }
     }

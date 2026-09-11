@@ -34,9 +34,12 @@ public final class RestoreScenario {
             }
         }
         if ("seed".equals(phase)) {
+            var preferences = io.github.zhumaniezov.codex.edt.settings.EdtPreferencesService.store();
+            preferences.setValue(io.github.zhumaniezov.codex.edt.settings.EdtPreferencesService.LANGUAGE, "en"); preferences.save();
             page.closeAllEditors(false);
             page.showView(ID);
         }
+        if (!"seed".equals(phase)) { assertEquals("en", io.github.zhumaniezov.codex.edt.settings.EdtPreferencesService.store().getString(io.github.zhumaniezov.codex.edt.settings.EdtPreferencesService.LANGUAGE)); }
         var reference = page.findViewReference(ID);
         assertNotNull("Сохранённая панель должна присутствовать", reference);
         var view = reference.getView(true);

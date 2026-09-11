@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.protocol;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import java.io.IOException;
 import java.io.StringReader;
 import com.google.gson.Gson;
@@ -9,7 +10,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
 public final class CodexProtocol {
-    public static final Gson JSON = new Gson();
+    public static final Gson JSON = new com.google.gson.GsonBuilder().serializeNulls().create();
     private CodexProtocol() { }
 
     public static JsonObject parse(String line) throws IOException {
@@ -17,12 +18,12 @@ public final class CodexProtocol {
             reader.setLenient(false);
             JsonElement value = JSON.getAdapter(JsonElement.class).read(reader);
             if (value == null || !value.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT) {
-                throw new IOException("Ожидался один JSON-объект.");
+                throw new IOException(tr("text099"));
             }
             return value.getAsJsonObject();
         } catch (RuntimeException | IOException error) {
             // Исходная строка может содержать личные данные; в исключение она не попадает.
-            throw new IOException("Codex прислал некорректный JSONL.");
+            throw new IOException(tr("text100"));
         }
     }
 

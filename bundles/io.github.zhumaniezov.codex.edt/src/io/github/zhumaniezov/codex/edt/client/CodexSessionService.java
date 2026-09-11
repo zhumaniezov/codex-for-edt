@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.client;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import static io.github.zhumaniezov.codex.edt.protocol.CodexProtocol.*;
 import static io.github.zhumaniezov.codex.edt.client.SessionData.*;
 import java.io.IOException;
@@ -38,6 +39,8 @@ public final class CodexSessionService implements CodexClient {
     private String threadId = "";
     private Path projectDirectory;
     private boolean resumed;
+    private boolean initialized;
+    private boolean hostedThreads;
     private long generation;
     private ActiveTurn active;
 
@@ -74,10 +77,10 @@ public final class CodexSessionService implements CodexClient {
     private void submit(CompletableFuture<?> future, Runnable task) {
         try {
             executor.execute(() -> {
-                if (closed) { future.completeExceptionally(new IOException("Панель Codex закрыта.")); }
+                if (closed) { future.completeExceptionally(new IOException(tr("text003"))); }
                 else { task.run(); }
             });
-        } catch (RejectedExecutionException error) { future.completeExceptionally(new IOException("Панель Codex закрыта.")); }
+        } catch (RejectedExecutionException error) { future.completeExceptionally(new IOException(tr("text003"))); }
     }
     private <T> CompletionStage<T> operation(Operation<T> operation) {
         var future = new CompletableFuture<T>();
@@ -88,23 +91,23 @@ public final class CodexSessionService implements CodexClient {
         return future;
     }
     private void requireConnection() throws IOException {
-        if (connection == null || rpc == null || !rpc.isAlive()) { throw new IOException("Codex отключён. Нажмите «Переподключить»."); }
+        if (connection == null || rpc == null || !rpc.isAlive()) { throw new IOException(tr("text053")); }
     }
     private void requireIdle() throws IOException {
-        if (active != null) { throw new IOException("Сначала остановите текущий запрос или дождитесь ответа."); }
+        if (active != null) { throw new IOException(tr("text054")); }
     }
     private JsonObject call(String method, JsonObject params) throws Exception { return rpc.request(method, params).get(50, TimeUnit.SECONDS); }
 
     @Override public CompletionStage<ConnectionInfo> connect() {
         var future = new CompletableFuture<ConnectionInfo>();
         submit(future, () -> {
-            if (active != null) { future.completeExceptionally(new IOException("Сначала остановите текущий запрос.")); return; }
+            if (active != null) { future.completeExceptionally(new IOException(tr("text055"))); return; }
             try {
                 generation++;
                 long current = generation;
                 state(State.CONNECTING);
                 if (rpc != null) { rpc.close(); rpc.termination().get(8, TimeUnit.SECONDS); }
-                connection = null; threadId = ""; projectDirectory = null; resumed = false;
+                initialized = false; hostedThreads = false; connection = null; threadId = ""; projectDirectory = null; resumed = false;
                 models = List.of(); account = Account.NONE; effort = "";
                 List<String> command = suppliedCommand;
                 String version = suppliedVersion;
@@ -115,16 +118,16 @@ public final class CodexSessionService implements CodexClient {
                 rpc = new CodexAppServerClient(command, null,
                     (method, params) -> enqueue(() -> { if (!closed && current == generation) { notification(method, params); } }),
                     error -> enqueue(() -> connectionLost(current, error)), diagnostics, Duration.ofSeconds(45));
-                if (closed) { rpc.close(); throw new IOException("Панель Codex закрыта."); }
+                if (closed) { rpc.close(); throw new IOException(tr("text003")); }
                 var bundle = FrameworkUtil.getBundle(CodexSessionService.class);
                 call("initialize", object("clientInfo", object("name", "codex_edt", "title", "Codex for 1C:EDT",
-                    "version", bundle == null ? "0.3.1" : bundle.getVersion().toString())));
-                rpc.notify("initialized");
+                    "version", bundle == null ? "0.4.0" : bundle.getVersion().toString())));
+                rpc.notify("initialized"); initialized = true;
                 JsonObject response = call("account/read", object("refreshToken", false));
                 account = SessionData.account(response);
                 if (bool(response, "requiresOpenaiAuth") && account.type().isEmpty()) {
                     state(State.AUTH_REQUIRED);
-                    throw new IOException("Требуется вход в Codex. Выполните codex login в терминале, затем нажмите «Переподключить».");
+                    throw new IOException(tr("text056"));
                 }
                 var values = new ArrayList<JsonObject>();
                 String cursor = "";
@@ -135,7 +138,7 @@ public final class CodexSessionService implements CodexClient {
                     JsonObject page = call("model/list", params);
                     page.getAsJsonArray("data").forEach(model -> values.add(model.getAsJsonObject()));
                     cursor = string(page, "nextCursor");
-                    if (!cursor.isEmpty() && !visited.add(cursor)) { throw new IOException("Повтор курсора model/list."); }
+                    if (!cursor.isEmpty() && !visited.add(cursor)) { throw new IOException(tr("text057")); }
                 } while (!cursor.isEmpty());
                 models = SessionData.models(values);
                 Model model = defaultModel(models);
@@ -143,11 +146,27 @@ public final class CodexSessionService implements CodexClient {
                 connection = new ConnectionInfo(version, model.id());
                 state(State.READY); future.complete(connection);
             } catch (Throwable error) {
-                if (rpc != null) { rpc.close(); }
+                if (rpc != null && snapshot.state() != State.AUTH_REQUIRED) { rpc.close(); initialized = false; }
                 connection = null;
                 if (snapshot.state() != State.AUTH_REQUIRED) { state(State.ERROR); }
                 future.completeExceptionally(unwrap(error));
             }
+        });
+        return future;
+    }
+    @Override public CompletionStage<JsonObject> manage(io.github.zhumaniezov.codex.edt.settings.ManagementRequest request, JsonObject params) {
+        var future = new CompletableFuture<JsonObject>();
+        submit(future, () -> {
+            try {
+                if (!initialized || rpc == null || !rpc.isAlive()) { throw new IOException(tr("unavailable")); }
+                requireIdle();
+                if (hostedThreads && (request == io.github.zhumaniezov.codex.edt.settings.ManagementRequest.CONFIG_WRITE
+                        || request == io.github.zhumaniezov.codex.edt.settings.ManagementRequest.MCP_RELOAD
+                        || request == io.github.zhumaniezov.codex.edt.settings.ManagementRequest.MCP_LOGIN)) {
+                    throw new IOException(tr("mcpDedicated"));
+                }
+                future.complete(call(request.method(), params));
+            } catch (Throwable error) { future.completeExceptionally(unwrap(error)); }
         });
         return future;
     }
@@ -157,7 +176,7 @@ public final class CodexSessionService implements CodexClient {
         return operation(() -> {
             requireIdle();
             Model selected = models.stream().filter(model -> model.id().equals(id)).findFirst()
-                .orElseThrow(() -> new IOException("Модель отсутствует в model/list."));
+                .orElseThrow(() -> new IOException(tr("text058")));
             effort = selected.compatibleEffort(requestedEffort);
             connection = new ConnectionInfo(connection.version(), selected.id());
             state(State.READY); return null;
@@ -178,6 +197,9 @@ public final class CodexSessionService implements CodexClient {
     @Override public CompletionStage<Void> newThread() {
         return operation(() -> { requireIdle(); detach(); state(State.READY); return null; });
     }
+    private JsonObject callThreadStart(JsonObject params) throws Exception {
+        hostedThreads = true; return call("thread/start", params);
+    }
     private JsonObject safeConfig(Path directory) throws Exception {
         return ReadOnlyPolicy.config(call("config/read", object("includeLayers", false, "cwd", directory.toString())).getAsJsonObject("config"));
     }
@@ -186,16 +208,17 @@ public final class CodexSessionService implements CodexClient {
             requireIdle();
             var metadata = call("thread/read", object("threadId", id, "includeTurns", false)).getAsJsonObject("thread");
             if (metadata.has("parentThreadId") && !metadata.get("parentThreadId").isJsonNull()) {
-                throw new IOException("Дочерние agent thread нельзя продолжать в этой панели.");
+                throw new IOException(tr("text059"));
             }
             Path directory = ReadOnlyPolicy.directory(string(metadata, "cwd"));
             var params = ReadOnlyPolicy.thread(directory.toString(), connection.model(), safeConfig(directory));
             params.remove("ephemeral"); params.addProperty("threadId", id); params.addProperty("excludeTurns", true);
+            hostedThreads = true;
             var result = call("thread/resume", params);
             try { ReadOnlyPolicy.verify(result, directory, connection.model()); }
             catch (IOException error) { connectionLost(generation, error); throw error; }
             String actual = string(result.getAsJsonObject("thread"), "id");
-            if (!id.equals(actual)) { throw new IOException("Codex вернул другой thread id."); }
+            if (!id.equals(actual)) { throw new IOException(tr("text060")); }
             HistoryPage history;
             try { history = readHistory(id, ""); }
             catch (Exception error) {
@@ -219,7 +242,7 @@ public final class CodexSessionService implements CodexClient {
         return operation(() -> {
             requireIdle(); call("account/logout", object());
             account = Account.NONE; connection = null; threadId = ""; projectDirectory = null;
-            state(State.AUTH_REQUIRED); rpc.close(); return null;
+            state(State.AUTH_REQUIRED); rpc.close(); initialized = false; return null;
         });
     }
     @Override public CompletionStage<Void> interrupt() {
@@ -235,21 +258,21 @@ public final class CodexSessionService implements CodexClient {
     @Override public CompletionStage<String> send(ChatRequest request, Consumer<String> onText) {
         var future = new CompletableFuture<String>();
         submit(future, () -> {
-            if (active != null) { future.completeExceptionally(new IOException("Codex уже выполняет запрос.")); return; }
+            if (active != null) { future.completeExceptionally(new IOException(tr("text061"))); return; }
             try {
                 requireConnection();
                 Path directory = request.context().projectDirectory().isBlank() && resumed ? projectDirectory
                     : ReadOnlyPolicy.directory(request.context().projectDirectory());
-                if (resumed && !directory.equals(projectDirectory)) {
-                    throw new IOException("Открытый редактор относится к другому проекту. Откройте модуль проекта чата или создайте новый чат.");
+                if (!threadId.isBlank() && !directory.equals(projectDirectory)) {
+                    throw new IOException(tr("text062"));
                 }
                 if (!directory.equals(projectDirectory) || threadId.isEmpty()) {
                     detach();
-                    var started = call("thread/start", ReadOnlyPolicy.thread(directory.toString(), connection.model(), safeConfig(directory)));
+                    var started = callThreadStart( ReadOnlyPolicy.thread(directory.toString(), connection.model(), safeConfig(directory)));
                     try { ReadOnlyPolicy.verify(started, directory, connection.model()); }
                     catch (IOException error) { connectionLost(generation, error); throw error; }
                     threadId = string(started.getAsJsonObject("thread"), "id");
-                    if (threadId.isEmpty()) { throw new IOException("Codex не вернул thread id."); }
+                    if (threadId.isEmpty()) { throw new IOException(tr("text063")); }
                     projectDirectory = directory;
                     String title = request.message().replaceAll("\\s+", " ").strip();
                     call("thread/name/set", object("threadId", threadId, "name", title.substring(0, Math.min(80, title.length()))));
@@ -260,9 +283,9 @@ public final class CodexSessionService implements CodexClient {
                 if (!effort.isBlank()) { params.addProperty("effort", effort); }
                 JsonObject result = call("turn/start", params);
                 turn.id = string(result.getAsJsonObject("turn"), "id");
-                if (turn.id.isEmpty()) { throw new IOException("Codex не вернул turn id."); }
+                if (turn.id.isEmpty()) { throw new IOException(tr("text064")); }
                 var watchdog = executor.schedule(() -> {
-                    if (active == turn) { connectionLost(generation, new IOException("Codex не завершил ответ за 5 минут.")); }
+                    if (active == turn) { connectionLost(generation, new IOException(tr("text065"))); }
                 }, 5, TimeUnit.MINUTES);
                 future.whenComplete((value, error) -> watchdog.cancel(false));
                 if (!"inProgress".equals(string(result.getAsJsonObject("turn"), "status"))) {
@@ -284,10 +307,15 @@ public final class CodexSessionService implements CodexClient {
                 if (bool(response, "requiresOpenaiAuth") && account.type().isBlank()) {
                     connection = null;
                     if (active != null) {
-                        active.future.completeExceptionally(new IOException("Требуется вход в Codex.")); active = null;
+                        active.future.completeExceptionally(new IOException(tr("text066"))); active = null;
                     }
                     state(State.AUTH_REQUIRED); rpc.close();
                 } else { state(snapshot.state()); }
+                return;
+            }
+            if (method.equals("account/login/completed")) {
+                if (bool(params, "success")) { connect(); }
+                else { listener.status(tr("error")); }
                 return;
             }
             ActiveTurn turn = active;
@@ -312,10 +340,10 @@ public final class CodexSessionService implements CodexClient {
                     }
                 }
                 case "error" -> {
-                    if (bool(params, "willRetry")) { listener.status("Повтор соединения..."); }
+                    if (bool(params, "willRetry")) { listener.status(tr("text067")); }
                     else {
                         active = null; state(State.ERROR);
-                        turn.future.completeExceptionally(new IOException("Ошибка Codex: " + redact(string(params.getAsJsonObject("error"), "message"))));
+                        turn.future.completeExceptionally(new IOException(tr("text068") + redact(string(params.getAsJsonObject("error"), "message"))));
                     }
                 }
                 case "turn/completed" -> {
@@ -327,7 +355,7 @@ public final class CodexSessionService implements CodexClient {
                         state(State.ERROR);
                         String message = completed.has("error") && completed.get("error").isJsonObject()
                             ? redact(string(completed.getAsJsonObject("error"), "message")) : status;
-                        turn.future.completeExceptionally(new IOException("Codex не завершил ответ: " + message));
+                        turn.future.completeExceptionally(new IOException(tr("text069") + message));
                     }
                 }
                 default -> { }
@@ -336,11 +364,11 @@ public final class CodexSessionService implements CodexClient {
     }
     private void publish(ActiveTurn turn) throws IOException {
         String text = turn.text();
-        if (text.length() > 1024 * 1024) { throw new IOException("Ответ Codex превысил допустимый размер панели."); }
+        if (text.length() > 1024 * 1024) { throw new IOException(tr("text070")); }
         turn.onText.accept(text);
     }
     private void connectionLost(long current, Throwable error) {
-        if (closed || current != generation || connection == null && !snapshot.state().running()) { return; }
+        if (closed || current != generation || !initialized && connection == null && !snapshot.state().running()) { return; }
         connection = null;
         if (rpc != null) { rpc.close(); }
         if (active != null) { active.future.completeExceptionally(error); active = null; }
@@ -356,7 +384,7 @@ public final class CodexSessionService implements CodexClient {
         if (current != null) { current.close(); }
         enqueue(() -> {
             if (rpc != null) { rpc.close(); }
-            if (active != null) { active.future.completeExceptionally(new IOException("Панель закрыта.")); active = null; }
+            if (active != null) { active.future.completeExceptionally(new IOException(tr("text071"))); active = null; }
         });
         executor.shutdown();
     }

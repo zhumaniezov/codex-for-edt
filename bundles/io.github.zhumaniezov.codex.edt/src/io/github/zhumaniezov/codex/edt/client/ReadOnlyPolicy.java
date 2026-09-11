@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.client;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import static io.github.zhumaniezov.codex.edt.protocol.CodexProtocol.*;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -50,10 +51,10 @@ public final class ReadOnlyPolicy {
     }
 
     public static Path directory(String directory) throws IOException {
-        if (directory.isBlank()) { throw new IOException("Откройте BSL-модуль проекта EDT с физическим каталогом."); }
+        if (directory.isBlank()) { throw new IOException(tr("text073")); }
         Path path = Path.of(directory);
         if (!path.isAbsolute() || !Files.isDirectory(path)) {
-            throw new IOException("Физический каталог проекта EDT не существует.");
+            throw new IOException(tr("text074"));
         }
         return path.toRealPath();
     }
@@ -65,7 +66,7 @@ public final class ReadOnlyPolicy {
                 || !"never".equals(string(result, "approvalPolicy"))
                 || !model.equals(string(result, "model"))
                 || !directory.equals(directory(string(result, "cwd")))) {
-            throw new IOException("Codex не подтвердил ожидаемые cwd, модель и режим чтения. Запрос остановлен.");
+            throw new IOException(tr("text075"));
         }
     }
 

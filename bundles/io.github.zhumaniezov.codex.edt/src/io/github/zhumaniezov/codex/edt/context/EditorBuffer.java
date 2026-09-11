@@ -1,5 +1,6 @@
 package io.github.zhumaniezov.codex.edt.context;
 
+import static io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 
@@ -9,7 +10,7 @@ public record EditorBuffer(String text, int offset, int totalLength, int firstLi
     public boolean partial() { return offset != 0 || text.length() != totalLength; }
 
     public static EditorBuffer capture(IDocument document, int caret) {
-        if (document == null) { throw new IllegalStateException("Не удалось получить несохранённый документ редактора."); }
+        if (document == null) { throw new IllegalStateException(tr("text077")); }
         int total = document.getLength();
         int length = Math.min(total, LIMIT);
         int start = Math.max(0, Math.min(Math.max(0, caret) - length / 2, total - length));
@@ -19,6 +20,6 @@ public record EditorBuffer(String text, int offset, int totalLength, int firstLi
             if (start + length < total && length > 0 && Character.isHighSurrogate(document.getChar(start + length - 1))) { length--; }
             return new EditorBuffer(document.get(start, length), start, total,
                 document.getLineOfOffset(start) + 1, document.getNumberOfLines());
-        } catch (BadLocationException error) { throw new IllegalStateException("Документ редактора изменился при чтении.", error); }
+        } catch (BadLocationException error) { throw new IllegalStateException(tr("text078"), error); }
     }
 }
