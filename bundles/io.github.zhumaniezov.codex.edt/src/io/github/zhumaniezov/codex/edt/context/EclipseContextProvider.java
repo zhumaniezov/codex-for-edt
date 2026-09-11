@@ -11,7 +11,7 @@ import org.eclipse.ui.part.MultiPageEditorPart;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 /** Читает активный редактор на UI-потоке SWT через публичные API Eclipse. */
-public final class EclipseContextProvider {
+public final class EclipseContextProvider implements ContextProvider {
     public EditorContext capture(IWorkbenchPage page) {
         if (page == null || page.getActiveEditor() == null) {
             return EditorContext.EMPTY;
@@ -39,7 +39,19 @@ public final class EclipseContextProvider {
         String module = file == null ? name : file.getFullPath().toPortableString();
         var provider = textEditor.getSelectionProvider();
         var selection = provider == null ? null : provider.getSelection();
-        String selectedText = selection instanceof ITextSelection text ? text.getText() : "";
-        return new EditorContext(project, module, selectedText == null ? "" : selectedText, directory);
+
+        int offset = selection instanceof ITextSelection text ? text.getOffset() : 0;
+        int length = selection instanceof ITextSelection text ? text.getLength() : 0;
+        boolean dirty = textEditor.isDirty();
+        var documents = textEditor.getDocumentProvider();
+        var document = documents == null ? null : documents.getDocument(textEditor.getEditorInput());
+        String selectedText = "";
+        if (document != null && length > 0) {
+            try { selectedText = document.get(offset, Math.min(length, 16000)); }
+            catch (org.eclipse.jface.text.BadLocationException error) { throw new IllegalStateException("Не удалось прочитать выделение.", error); }
+        }
+        var buffer = dirty ? EditorBuffer.capture(document, offset) : null;
+        return new EditorContext(project, module, selectedText == null ? "" : selectedText,
+            directory, dirty, buffer, offset, length);
     }
 }

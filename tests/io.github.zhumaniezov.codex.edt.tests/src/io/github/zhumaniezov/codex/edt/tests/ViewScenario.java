@@ -52,19 +52,20 @@ public final class ViewScenario {
             view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex");
             var shell = view.getSite().getShell();
             Text prompt = (Text) find(shell, "prompt");
-            Text response = (Text) find(shell, "response");
+            org.eclipse.swt.custom.StyledText response = (org.eclipse.swt.custom.StyledText) find(shell, "response");
             Button send = (Button) find(shell, "send");
             Label diagnostic = (Label) find(shell, "diagnostic");
             Label status = (Label) find(shell, "status");
             prompt.setText("Что делает выделенный код?");
-            waitFor(() -> send.isEnabled() || status.getText().contains("ошибка") || status.getText().contains("требуется вход"), 60, () -> { });
+            waitFor(() -> send.isEnabled() || status.getText().contains("Ошибка") || status.getText().contains("Требуется вход"), 60, () -> { });
             assertTrue(response.getText(), send.isEnabled());
             page.activate(view);
             send.notifyListeners(SWT.Selection, new Event());
             assertFalse(send.isEnabled());
             boolean[] partial = { false };
-            waitFor(send::isEnabled, live ? 180 : 20, () -> {
-                if (!send.isEnabled() && !response.getText().isBlank()) { partial[0] = true; }
+            waitFor(() -> !session.snapshot().state().running() && response.getText().contains("Привет")
+                && ((Integer) response.getData("codex.streamingUpdates")) > 0, live ? 180 : 20, () -> {
+                if (session.snapshot().state().running() && response.getText().contains("Codex")) { partial[0] = true; }
             });
             assertTrue("Ответ должен появиться до окончания выполнения", partial[0]);
             assertTrue("Не получены потоковые обновления", ((Integer) response.getData("codex.streamingUpdates")) > 0);
@@ -88,7 +89,7 @@ public final class ViewScenario {
         }
     }
 
-    private static Map<String, String> hashes(Path root) throws Exception {
+    static Map<String, String> hashes(Path root) throws Exception {
         var result = new TreeMap<String, String>();
         try (var paths = Files.walk(root)) {
             for (Path path : paths.filter(Files::isRegularFile).toList()) {
@@ -99,7 +100,7 @@ public final class ViewScenario {
         return result;
     }
 
-    private static Control find(Composite parent, String role) {
+    static Control find(Composite parent, String role) {
         for (Control control : parent.getChildren()) {
             if (role.equals(control.getData("codex.role"))) { return control; }
             if (control instanceof Composite composite) {
@@ -110,7 +111,7 @@ public final class ViewScenario {
         return null;
     }
 
-    private static void waitFor(BooleanSupplier condition, int seconds, Runnable progress) {
+    static void waitFor(BooleanSupplier condition, int seconds, Runnable progress) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
         Display display = Display.getCurrent();
         Runnable wakeup = new Runnable() {

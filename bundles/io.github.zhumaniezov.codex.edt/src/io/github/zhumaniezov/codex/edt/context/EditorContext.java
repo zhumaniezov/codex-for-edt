@@ -2,14 +2,16 @@ package io.github.zhumaniezov.codex.edt.context;
 
 import java.util.Objects;
 
-/** Передаёт клиенту только данные, без ссылок на живые объекты Eclipse. */
-public record EditorContext(String projectName, String modulePath, String selectedText, String projectDirectory) {
+/** Передаёт клиенту данные без ссылок на живые объекты Eclipse. */
+public record EditorContext(String projectName, String modulePath, String selectedText, String projectDirectory,
+        boolean dirty, EditorBuffer buffer, int selectionOffset, int selectionLength) {
     public static final EditorContext EMPTY = new EditorContext("", "", "", "");
-
+    public EditorContext(String projectName, String modulePath, String selectedText, String projectDirectory) {
+        this(projectName, modulePath, selectedText, projectDirectory, false, null, 0, selectedText.length());
+    }
     public EditorContext {
-        Objects.requireNonNull(projectName, "projectName");
-        Objects.requireNonNull(modulePath, "modulePath");
-        Objects.requireNonNull(selectedText, "selectedText");
-        Objects.requireNonNull(projectDirectory, "projectDirectory");
+        Objects.requireNonNull(projectName); Objects.requireNonNull(modulePath);
+        Objects.requireNonNull(selectedText); Objects.requireNonNull(projectDirectory);
+        if (dirty && buffer == null) { throw new IllegalArgumentException("Dirty-редактор требует снимка документа."); }
     }
 }

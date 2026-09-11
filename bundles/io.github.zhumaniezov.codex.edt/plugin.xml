@@ -9,4 +9,8 @@
       <description>Codex for 1C:EDT — потоковые ответы Codex App Server в режиме чтения.</description>
     </view>
   </extension>
+  <extension point="org.eclipse.ui.preferencePages">
+    <page id="io.github.zhumaniezov.codex.edt.preferences" name="Codex for 1C:EDT"
+        class="io.github.zhumaniezov.codex.edt.ui.EdtPreferences"/>
+  </extension>
 </plugin>

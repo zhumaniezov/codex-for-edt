@@ -42,8 +42,12 @@ try {
 $version = [regex]::Match($manifest, '(?m)^Bundle-Version: ([^\r\n]+)').Groups[1].Value
 if (!$version) { throw 'Bundle-Version is missing' }
 $lines += "io.github.zhumaniezov.codex.edt,$version,$(([Uri]([IO.Path]::GetFullPath($PluginJar))).AbsoluteUri),4,false"
+$commonmark = Join-Path $projectRoot 'repositories\io.github.zhumaniezov.codex.edt.repository\target\repository\plugins\org.commonmark_0.30.0.jar'
+if (!(Test-Path -LiteralPath $commonmark)) { throw 'Сначала выполните scripts/build.ps1: требуется org.commonmark_0.30.0.jar.' }
+$lines = @($lines | Where-Object { !$_.StartsWith('org.commonmark,') })
+$lines += "org.commonmark,0.30.0,$(([Uri]$commonmark).AbsoluteUri),4,false"
 if ($Smoke) {
-    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.2.0-SNAPSHOT.jar'
+    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.3.0-SNAPSHOT.jar'
     if (!(Test-Path -LiteralPath $testJar)) { throw 'Build the test bundle before -Smoke' }
     $testZip = [IO.Compression.ZipFile]::OpenRead($testJar)
     try {

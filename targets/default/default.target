@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?pde version="3.8"?>
-<target name="Codex - EDT 2026.1 / Java 17" sequenceNumber="1">
+<target name="Codex - EDT 2026.1 / Java 17" sequenceNumber="2">
   <locations>
     <!-- Репозитории релиза взяты из 1C-Company/dt-example-plugins, коммит 921c30c.
          Плагину не нужны компоненты редактирования метаданных и запуска платформы. -->
@@ -16,6 +16,10 @@
       <!-- Реализация, необходимая для совместимого набора библиотек Hamcrest. -->
       <unit id="org.hamcrest" version="0.0.0"/>
       <unit id="com.google.gson" version="0.0.0"/>
+    </location>
+    <location includeDependencyDepth="none" includeSource="true" missingManifest="error" type="Maven">
+      <dependencies><dependency><groupId>org.commonmark</groupId><artifactId>commonmark</artifactId>
+        <version>0.30.0</version><type>jar</type></dependency></dependencies>
     </location>
   </locations>
   <environment><os>win32</os><ws>win32</ws><arch>x86_64</arch></environment>

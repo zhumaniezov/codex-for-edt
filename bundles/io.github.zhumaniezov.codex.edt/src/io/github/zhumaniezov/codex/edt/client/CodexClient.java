@@ -15,7 +15,28 @@ public interface CodexClient extends AutoCloseable {
 
     void setListener(Listener listener);
 
+    default SessionData.Snapshot snapshot() { return SessionData.Snapshot.EMPTY; }
+    default CompletionStage<SessionData.ThreadPage> threads(String cursor) {
+        return java.util.concurrent.CompletableFuture.completedFuture(new SessionData.ThreadPage(java.util.List.of(), ""));
+    }
+    default CompletionStage<Void> newThread() { return java.util.concurrent.CompletableFuture.completedFuture(null); }
+    default CompletionStage<SessionData.HistoryPage> resume(String id) {
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException("Resume недоступен"));
+    }
+    default CompletionStage<SessionData.HistoryPage> history(String cursor) {
+        return java.util.concurrent.CompletableFuture.completedFuture(new SessionData.HistoryPage(java.util.List.of(), ""));
+    }
+    default CompletionStage<Void> select(String model, String effort) {
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+    default CompletionStage<Void> interrupt() { return java.util.concurrent.CompletableFuture.completedFuture(null); }
+    default CompletionStage<Void> logout() {
+        return java.util.concurrent.CompletableFuture.failedFuture(new UnsupportedOperationException("Выход недоступен"));
+    }
+
     interface Listener {
+        default void changed(SessionData.Snapshot snapshot) { }
+
         void status(String status);
         void disconnected(Throwable error);
     }

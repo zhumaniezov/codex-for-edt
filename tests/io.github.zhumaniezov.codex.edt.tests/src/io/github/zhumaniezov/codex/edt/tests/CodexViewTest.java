@@ -48,7 +48,7 @@ public class CodexViewTest {
         var view = page.showView(VIEW_ID);
         var shell = window.getShell();
         Text prompt = (Text) find(shell, "prompt");
-        Text response = (Text) find(shell, "response");
+        org.eclipse.swt.custom.StyledText response = (org.eclipse.swt.custom.StyledText) find(shell, "response");
         Button send = (Button) find(shell, "send");
         assertEquals("Codex", view.getTitle());
         assertFalse(send.isEnabled());
@@ -57,8 +57,7 @@ public class CodexViewTest {
         prompt.setText("Проверка");
         await(() -> send.isEnabled());
         send.notifyListeners(SWT.Selection, new Event());
-        await(() -> send.isEnabled());
-        assertTrue(response.getText().contains("Тестовый ответ Codex"));
+        await(() -> response.getText().contains("Тестовый ответ Codex"));
 
         IProject project = ResourcesPlugin.getWorkspace().getRoot()
             .getProject("codex-smoke-" + UUID.randomUUID());
@@ -79,12 +78,14 @@ public class CodexViewTest {
             assertEquals(java.nio.file.Path.of(project.getLocationURI()).toString(), context.projectDirectory());
             assertEquals(file.getFullPath().toPortableString(), context.modulePath());
             assertEquals(selected, context.selectedText());
+            assertTrue(context.dirty());
+            assertEquals("// Несохранённый текст", context.buffer().text());
+            assertEquals("// Сохранённый текст", java.nio.file.Files.readString(java.nio.file.Path.of(file.getLocationURI())));
 
             page.activate(view);
             prompt.setText("Контекст");
             send.notifyListeners(SWT.Selection, new Event());
-            await(() -> send.isEnabled());
-            assertTrue(response.getText().contains(selected));
+            await(() -> response.getText().contains(selected));
             assertTrue(response.getText().contains(project.getName()));
 
             // Новое выделение заменяет прежнее, в том числе при снятии выделения.

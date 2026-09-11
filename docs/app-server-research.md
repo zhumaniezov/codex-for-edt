@@ -1,6 +1,6 @@
 # Исследование Codex App Server
 
-Дата: 11 сентября 2026 года. Исследование выполнено до реализации второго этапа.
+Дата: 11 сентября 2026 года. Первоначальное исследование выполнено до второго этапа; перед третьим этапом команды и schema проверены повторно.
 
 ## Проверенная версия и источники
 
@@ -25,7 +25,7 @@ CLI помечает сам app-server и генератор схем как э�
 Один запрос `initialize` на соединение:
 
 ```json
-{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.2.0"}}}
+{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex_edt","title":"Codex for 1C:EDT","version":"0.3.0"}}}
 ```
 
 После успешного ответа — уведомление `initialized`, затем `account/read` с `refreshToken:false`. Версия clientInfo в реализации берётся из bundle.
@@ -72,7 +72,7 @@ MCP-серверы могут выполнять действия вне фай�
 
 Физический cwd получается через `IProject.getLocationURI()`; для file URI проверяется существующий каталог. Внутренний путь ресурса `/Проект/src/.../Module.bsl` используется только как описание файла. Внешнее расположение импортированного проекта поддерживается. Проект без доступного файлового каталога не отправляется.
 
-На View хранится один диалог. При смене физического проекта создаётся новый диалог. История между перезапусками не сохраняется плагином. В сообщение включаются путь модуля, непустое выделение и запрос пользователя; полный файл не читается автоматически.
+На View выбран один текущий диалог, но процесс обслуживает несколько диалогов. В версии 0.3 они имеют `ephemeral:false`, а история принадлежит Codex. Новый чат отсоединяет предыдущий через `thread/unsubscribe`. Resume сохраняет cwd исходного чата и заново проверяет режим чтения. В prompt включаются модуль, выделение и актуальный dirty-буфер; сохранённый модуль целиком автоматически не отправляется.
 
 Работа процесса, JSONL и ожидание RPC выполняются вне SWT-потока. Обновления View проходят через asyncExec. Закрытие View/остановка bundle закрывают только собственный дочерний процесс: сначала stdin, затем ограниченное ожидание и завершение при необходимости. Чужие процессы Codex не затрагиваются.
 
@@ -81,3 +81,51 @@ MCP-серверы могут выполнять действия вне фай�
 Реальный локальный probe подтвердил initialize, account/read, model/list, config/read, создание read-only thread/turn, получение 11 delta, неизменность тестового BSL-файла и выход процесса с кодом 0 после закрытия stdin. Из ограниченной среды агента запуск сначала завершился до handshake из-за недоступности служебных каталогов Codex; штатный запуск с доступом самого Codex к своему хранилищу прошёл успешно. Никаких ручных записей в каталог пользователя не выполнялось.
 
 План реализован: отдельные слои процесса, JSONL/RPC и сессии; минимальная адаптация View; воспроизводимые тесты с дочерним тестовым сервером; отдельный явно включаемый реальный тест в EDT; Maven/Tycho и p2 verification. Настоящий ответ через SWT View получен в полном EDT. Итоговые результаты — в [testing.md](testing.md).
+
+## Повторное исследование третьего этапа
+
+`codex --version` снова вернул **0.153.4**. Выполнены `app-server --help` и генерация stable schema в `.runtime/app-server-schema-stage3`. Сверены `ClientRequest.json` и definitions агрегированного `codex_app_server_protocol.v2.schemas.json`. В Git эти файлы не добавляются. CLI находится по тому же пути в локальной установке Codex, указанному выше.
+
+Официальные UX-страницы и границы реализации перечислены в [ide-parity.md](ide-parity.md). Дополнительно в исходниках версии изучены обработчики thread/resume, каталога и обогащения thread. У parent-owned дочерних thread параметры resume могут игнорироваться; поэтому такие thread отфильтрованы и отвергаются при resume, а effective response проверяется всегда.
+
+| Stable RPC | Используемые поля / результат |
+|---|---|
+| `thread/list` | limit=15, cursor, updated_at, desc, archived=false; sourceKinds cli/vscode/appServer/unknown; data и nextCursor |
+| `thread/read` | threadId, includeTurns=false; cwd и parentThreadId |
+| `thread/start` | cwd, model, read-only, approvalPolicy=never, approvalsReviewer=user, ephemeral=false, config |
+| `thread/name/set` | threadId, name; название первого запроса |
+| `thread/resume` | threadId, cwd, model, sandbox=read-only, approvalPolicy=never, config, excludeTurns=true |
+| `thread/turns/list` | threadId, cursor, limit=10, sortDirection=desc, itemsView=full |
+| `thread/unsubscribe` | threadId; отключает подписку текущего процесса, не удаляет историю |
+| `turn/start` | прежние read-only поля плюс **effort** из каталога |
+| `turn/interrupt` | threadId и turnId; после ответа ожидается turn/completed со status=interrupted |
+| `account/read` | refreshToken=false; type, email, planType без токенов |
+| `account/logout` | пустые params; общий выход из Codex, только по действию пользователя |
+| `account/updated` | уведомление, после которого обновляется account/read |
+
+`thread/turns/list` выбран вместо гидратации всех turns через resume: он совместим с серверной пагинацией истории. Клиент показывает userMessage.content[type=text] и agentMessage.text; tool items пока не визуализируются. Ни путь внутреннего хранилища thread, ни undocumented поля не используются.
+
+Также подтверждены, но **не реализованы в UI**: `turn/steer` с expectedTurnId/input; `account/login/start` с type=chatgpt и результатом authUrl/loginId; `account/login/completed`. Авторизация из панели отложена, поскольку существующего `codex login` достаточно и вход общий для нескольких клиентов.
+
+## Фактически обнаруженные модели
+
+Каталог получен реальным `model/list` 11 сентября 2026 года под существующей авторизацией. Это результат проверки, не встроенный список плагина. Доступность зависит от аккаунта и может измениться.
+
+| model (protocol) | displayName (UI) | Default effort | Поддерживаемые effort |
+|---|---|---|---|
+| gpt-6-astra | GPT-6-Astra | medium | low, medium, high, xhigh, max, ultra |
+| gpt-5.6-sol | GPT-5.6-Sol | low | low, medium, high, xhigh, max, ultra |
+| gpt-5.6-terra | GPT-5.6-Terra | medium | low, medium, high, xhigh, max, ultra |
+| gpt-5.6-luna | GPT-5.6-Luna | medium | low, medium, high, xhigh, max |
+| gpt-5.5 | GPT-5.5 | medium | low, medium, high, xhigh |
+| gpt-5.3-codex-spark | GPT-5.3-Codex-Spark | high | low, medium, high, xhigh |
+
+`isDefault=true` обнаружен у **gpt-6-astra**. UI переводит reasoning: low — «Лёгкое», medium — «Среднее», high — «Высокое», xhigh — «Очень высокое», max — «Максимальное», ultra — «Ультра». Неизвестные новые значения показываются без подмены. Выбор ultra не включает разрешения записи или субагентов; серверные ограничения не обходятся.
+
+## Ограничения третьего этапа
+
+- Проверена точная версия 0.153.4, experimentalApi выключен.
+- Сохранённые thread содержат отправленный IDE-контекст, включая dirty-буфер: историю хранит сам Codex. Плагин не ведёт второй архив и не журналирует prompt.
+- Удалённые каталоги, занятые другим клиентом thread и слишком большой ответ истории могут потребовать другого чата; клиент не обходит блокировки. JSONL ограничен 2 МиБ на строку, RPC — 45 секундами.
+- Browser login из EDT, очередь/steering, архивирование, полный вывод tool items, редактор глобального Codex config и семантика метаданных EDT отложены.
+- Режим записи, shell approvals, file change approvals, diff и Apply / Reject отсутствуют.
