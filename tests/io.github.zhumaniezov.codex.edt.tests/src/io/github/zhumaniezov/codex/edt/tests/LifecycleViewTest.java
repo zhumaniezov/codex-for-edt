@@ -53,7 +53,7 @@ public class LifecycleViewTest {
             assertNotNull(find(parent, "prompt")); assertNotNull(find(parent, "response"));
             assertEquals("Подключение...", ((Label) find(parent, "status")).getText());
             assertEquals(0, calls.get());
-            var retry = (Button) find(parent, "reconnect");
+            var retry = find(parent, "reconnect");
             var status = (Label) find(parent, "status");
             if (mode.equals("dispose-pending")) {
                 waitFor(session::processAlive, 10, () -> { });

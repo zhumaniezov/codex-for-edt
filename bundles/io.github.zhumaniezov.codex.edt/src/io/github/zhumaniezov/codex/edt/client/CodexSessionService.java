@@ -121,7 +121,7 @@ public final class CodexSessionService implements CodexClient {
                 if (closed) { rpc.close(); throw new IOException(tr("text003")); }
                 var bundle = FrameworkUtil.getBundle(CodexSessionService.class);
                 call("initialize", object("clientInfo", object("name", "codex_edt", "title", "Codex for 1C:EDT",
-                    "version", bundle == null ? "0.4.0" : bundle.getVersion().toString())));
+                    "version", bundle == null ? "0.5.0" : bundle.getVersion().toString())));
                 rpc.notify("initialized"); initialized = true;
                 JsonObject response = call("account/read", object("refreshToken", false));
                 account = SessionData.account(response);

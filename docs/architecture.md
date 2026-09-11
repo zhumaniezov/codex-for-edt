@@ -1,9 +1,14 @@
-# Архитектура версии 0.4
+# Архитектура версии 0.5
 
 ## Слои
 
 | Компонент | Ответственность |
 |---|---|
+| `HeaderComponent`, `IconButton` | Раскладка header, геометрические иконки, круглое действие, focus/keyboard/accessibility |
+| `ThemePalette`, `PaletteModel` | Цветовые роли из темы, контраст, владение ресурсами и обновление controls |
+| `AttachmentSelection`, `AttachmentController`, `AttachmentChipBar` | Валидация read-only ссылок в фоне, лимит/дубликаты, удаляемые chips |
+| `ComposerState`, `ApprovalPresenter`, `ApprovalPanel` | Состояния представления; подготовка approvals без выдачи разрешений |
+| `ConversationDocument` | Явные границы/роли сообщений и оформление поверх Markdown |
 | `CodexView` | Соединяет компоненты панели, передаёт действия клиенту, обновляет SWT |
 | `ThreadListComponent` | Таблица серверных чатов, время, пагинация, текущий чат |
 | `ChatComponent` | Текущая отображаемая история и потоковый ответ |
@@ -29,7 +34,7 @@ SWT-поток читает `IDocument` и обновляет controls; в нё�
 
 Состояния: `DISCONNECTED → CONNECTING → READY → WORKING → READY`; Stop проходит через `STOPPING → STOPPED`, из которого разрешён следующий Send. Ошибки дают `ERROR` либо `DISCONNECTED`, отсутствие входа — `AUTH_REQUIRED`. Повреждение JSONL, серверный запрос действия, EOF и зависание процесса отключают соединение. `error.willRetry:true` оставляет turn активным. Dispose закрывает собственный процесс и завершает pending futures.
 
-Markdown разбирается отдельно от SWT; обновления объединяются с задержкой 45 мс, устаревшая версия результата не применяется. Стили — непересекающиеся `StyleRange`; шрифты JFace, цвет ссылок — системный SWT. Ошибка parser переводит конкретный ответ в простой текст. HTML отображается буквально, изображения не загружаются, URI проверяются до открытия внешнего браузера по нажатию пользователя. Файловые ссылки проверяет FileLinkTarget: real path внутри текущего project cwd, существующий IFile; открытие через IDE.openEditor и ITextEditor.selectAndReveal. Активные схемы заблокированы. При прокрутке вверх streaming не должен возвращать пользователя вниз.
+Markdown разбирается отдельно от SWT; обновления объединяются с задержкой 45 мс, устаревшая версия результата не применяется. Стили — непересекающиеся `StyleRange`; шрифты JFace, ссылки подчёркнуты, цвета берутся из ThemePalette. Ошибка parser переводит конкретный ответ в простой текст. HTML отображается буквально, изображения не загружаются, URI проверяются до открытия внешнего браузера по нажатию пользователя. Файловые ссылки проверяет FileLinkTarget: real path внутри текущего project cwd, существующий IFile; открытие через IDE.openEditor и ITextEditor.selectAndReveal. Активные схемы заблокированы. При прокрутке вверх streaming не должен возвращать пользователя вниз.
 
 ## Создание и закрытие View
 
@@ -77,7 +82,7 @@ XtextEditor 2.33 наследует TextEditor. Для чтения текста
 
 Общие Codex settings остаются у app-server. Composer передаёт выбранные модель/effort и обязательную политику сессии. Отдельное явное сохранение в Preferences использует config API; TOML вручную не редактируется. `EdtPreferencesService` хранит язык, Enter, auto-open, контекст и диагностику в `InstanceScope` рабочей области Eclipse.
 
-Сохраняются `sandbox:read-only`, `approvalPolicy:never`, `approvalsReviewer:user` и `sandboxPolicy:{type:readOnly,networkAccess:false}`. MCP, hooks, плагины, приложения, browser/computer tools, notifications-команды и субагенты отключены для дочернего процесса/thread. Skills остаются доступными в рамках read-only sandbox. Неожиданные серверные запросы действий отклоняются; UI approvals отсутствует.
+Сохраняются `sandbox:read-only`, `approvalPolicy:never`, `approvalsReviewer:user` и `sandboxPolicy:{type:readOnly,networkAccess:false}`. MCP, hooks, плагины, приложения, browser/computer tools, notifications-команды и субагенты отключены для дочернего процесса/thread. Skills остаются доступными в рамках read-only sandbox. Неожиданные серверные запросы действий отклоняются; Активный flow UI approvals отсутствует; chip сообщает действующую политику без изменения backend.
 
 JSONL и prompt не журналируются. STDERR и сообщения ошибок проходят редактирование типовых секретов, stack trace — в Error Log. Процесс закрывается по собственному Process/ProcessHandle и известным потомкам; чужие процессы по имени не завершаются. Предел RPC — 45 секунд, turn — пять минут. Сетевые/серверные ограничения показываются пользователю, а не обходятся.
 
@@ -93,3 +98,15 @@ JSONL и prompt не журналируются. STDERR и сообщения о
 `ThemeService` слушает SWT.Settings и IThemeManager, заимствует системные/родительские цвета и JFace fonts. `IconResources` использует ImageDescriptor с DPI-вариантами и LocalResourceManager на время жизни control; освобождение не затрагивает системные ресурсы. Исходные SVG оригинальны, PNG 16/24/32/48/64 экспортированы отдельно для двух тем. HTML/JS/WebView не используются.
 
 `AutoOpenCodex` opt-in по умолчанию выключен. Он асинхронно открывает View только при готовой page и отсутствии persisted View; стандартное восстановление Eclipse остаётся основным механизмом.
+
+## Представление и вложения 0.5
+
+`ThemePalette` получает исходные background/foreground у родительской поверхности Eclipse, а светлую/тёмную опору — из системных SWT colors. `PaletteModel` вычисляет panel/input/footer/border/muted/hover/selected/accent. При недостаточном контрасте исходного foreground выбирается читаемый; тесты проверяют контраст текста на типичных светлой/тёмной поверхностях. Собственные Color принадлежат View; после смены темы controls и Markdown получают новые цвета, старые освобождаются. Системные Color/Font не освобождаются. Native Windows chrome у Combo/scrollbars остаётся ответственностью EDT/ОС.
+
+`IconButton` рисует простую геометрию в логических координатах SWT: header 28, круглое действие 36. Клавиатура, мышь и accessible action вызывают одно SWT.Selection; disabled не активируется, Tab проходит штатно. Форма не требует нового PNG и масштабируется SWT. Иконка View и прежние ImageDescriptor/DPI assets сохранены. `ComposerState` отделяет доступность действий от раскладки. Settings получают более равномерные поля/интервалы без изменения сервисов.
+
+`ConversationDocument` собирает роли из SessionData.Message. Markdown, который модель написала похожим на подпись пользователя, не создаёт новое сообщение. Сообщения пользователя оформляются мягким фоном; код — отдельным фоном и моноширинным шрифтом. StyledText сохраняет выделение, безопасные links и контекстное копирование. Расчёт автопрокрутки учитывает фактические позиции строк и переносы; короткое приветствие не прокручивается вниз.
+
+`AttachmentController` читает IDE context в UI, а real path/stat выполняет собственным executor. `AttachmentSelection` хранит до пяти проверенных ссылок, не содержимое файлов. Проверка повторяется перед отправкой. Epoch отбрасывает позднее добавление после Send, нового чата или resume. `ChatRequest` добавляет неизменяемый список относительных путей; ReadOnlyPolicy помещает их в отдельный блок text input, экранируя каждый путь JSON-строкой. Новых RPC/DTO протокола нет. UI не читает прикреплённые файлы, не сохраняет редактор и не меняет sandbox. Другие dirty buffers не загружаются; исторические chips не восстанавливаются отдельным списком из thread history.
+
+ApprovalStatusComponent показывает фактический запрет расширения разрешений. ApprovalPresenter не разрешает approve/auto-approve/reject; ApprovalPanel существует как неактивный компонент будущей интеграции. Никакого обработчика принятия разрешений, переключения sandbox или симуляции серверного запроса не добавлено.

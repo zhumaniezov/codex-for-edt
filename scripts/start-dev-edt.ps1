@@ -53,7 +53,7 @@ if (!(Test-Path -LiteralPath $commonmark)) { throw 'Сначала выполн�
 $lines = @($lines | Where-Object { !$_.StartsWith('org.commonmark,') })
 $lines += "org.commonmark,0.30.0,$(([Uri]$commonmark).AbsoluteUri),4,false"
 if ($Smoke) {
-    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.4.0-SNAPSHOT.jar'
+    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.5.0-SNAPSHOT.jar'
     if (!(Test-Path -LiteralPath $testJar)) { throw 'Build the test bundle before -Smoke' }
     $testZip = [IO.Compression.ZipFile]::OpenRead($testJar)
     try {

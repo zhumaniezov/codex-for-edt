@@ -15,8 +15,8 @@ final class ChatComponent implements AutoCloseable {
     private String reply = "";
     private int updates;
     private boolean shortened;
-    ChatComponent(Composite parent, java.util.function.Consumer<String> links) {
-        renderer = new NativeMarkdownRenderer(parent, links);
+    ChatComponent(Composite parent, ThemePalette palette, java.util.function.Consumer<String> links) {
+        renderer = new NativeMarkdownRenderer(parent, links, palette);
         var layout = new GridData(SWT.FILL, SWT.FILL, true, true); layout.widthHint = 0; layout.heightHint = 0;
         renderer.control().setLayoutData(layout);
         clear();
@@ -38,15 +38,16 @@ final class ChatComponent implements AutoCloseable {
     void finish(String value) { renderer.control().setData("codex.answer", value); reply = ""; messages.add(new Message("Codex", value)); refresh(); }
     void error(String value) { messages.add(new Message(tr("text025"), value)); reply = ""; refresh(); }
     private void refresh() {
-        var source = new StringBuilder();
         int size = messages.stream().mapToInt(message -> message.text().length()).sum();
         while (size > 1024 * 1024 && messages.size() > 1) {
             size -= messages.remove(0).text().length(); shortened = true;
         }
-        if (shortened) { source.append(tr("text049")); }
-        for (var message : messages) { source.append("## ").append(message.role()).append("\n\n").append(message.text()).append("\n\n"); }
-        if (!reply.isEmpty()) { source.append("## Codex\n\n").append(reply); }
-        renderer.render(source.isEmpty() ? tr("text050") : source.toString());
+        var displayMessages=new ArrayList<Message>();
+        if(shortened){displayMessages.add(new Message(tr("conversation"),tr("text049")));}
+        displayMessages.addAll(messages);
+        if(!reply.isEmpty()){displayMessages.add(new Message("Codex",reply));}
+        if(displayMessages.isEmpty()){renderer.render(tr("emptyConversation"));}else{renderer.conversation(displayMessages);}
+
     }
     @Override public void close() { renderer.close(); }
 }

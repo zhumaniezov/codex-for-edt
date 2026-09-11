@@ -20,7 +20,7 @@ abstract class SettingsPage extends PreferencePage implements IWorkbenchPreferen
     SettingsPage() { noDefaultAndApplyButton(); }
     @Override public void init(IWorkbench workbench) { }
     @Override protected Control createContents(Composite parent) {
-        display = parent.getDisplay(); body = new Composite(parent, SWT.NONE); body.setLayout(new GridLayout(1, false));
+        display = parent.getDisplay(); body = new Composite(parent, SWT.NONE); var layout = new GridLayout(1, false); layout.marginWidth = 12; layout.marginHeight = 10; layout.verticalSpacing = 10; body.setLayout(layout);
         access = SettingsAccess.get(parent.getShell());
         status = label(body, tr("loading")); createBody();
         display.asyncExec(() -> { if (!body.isDisposed()) { refresh(); } }); return body;
@@ -32,7 +32,7 @@ abstract class SettingsPage extends PreferencePage implements IWorkbenchPreferen
         var data = new GridData(SWT.FILL, SWT.CENTER, true, false); data.widthHint = 420; label.setLayoutData(data); return label;
     }
     protected Composite row() {
-        var row = new Composite(body, SWT.NONE); row.setLayout(new RowLayout(SWT.HORIZONTAL));
+        var row = new Composite(body, SWT.NONE); var layout = new RowLayout(SWT.HORIZONTAL); layout.spacing = 8; layout.marginLeft = 0; layout.marginTop = 0; layout.marginBottom = 0; row.setLayout(layout);
         row.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false)); return row;
     }
     protected Button button(Composite parent, String text, Runnable action) {

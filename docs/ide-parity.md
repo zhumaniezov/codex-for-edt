@@ -1,6 +1,6 @@
-# Соответствие Codex IDE: третий этап
+# Соответствие Codex IDE: этапы 0.3–0.5
 
-Исследование выполнено 11 сентября 2026 года перед реализацией. Протокол проверен по стабильной JSON Schema установленного Codex CLI **0.153.4**, сгенерированной без `--experimental` в игнорируемый `.runtime/app-server-schema-stage3`. Базовая версия плагина — commit `4714953` (0.2).
+Исходное исследование третьего этапа выполнено 11 сентября 2026 года перед реализацией. Протокол проверен по стабильной JSON Schema установленного Codex CLI **0.153.4**, сгенерированной без `--experimental` в игнорируемый `.runtime/app-server-schema-stage3`. Базовая версия плагина — commit `4714953` (0.2).
 
 ## Официальные источники
 
@@ -82,3 +82,17 @@ Baseline перед работой — **ea2b186**, принятая автор�
 | Запись, diff, approvals | Не реализованы | Следующий этап требует отдельного решения |
 
 UX исследован по [официальному IDE](https://learn.chatgpt.com/docs/codex/ide), [editor context](https://learn.chatgpt.com/docs/prompting), [developer settings](https://learn.chatgpt.com/docs/developer-settings), [models](https://learn.chatgpt.com/docs/models), [projects/threads](https://learn.chatgpt.com/docs/projects), [permissions](https://learn.chatgpt.com/docs/agent-approvals-security) и связанным материалам в [settings.md](settings.md). OpenVSX использован только как metadata/визуальный референс; код VS Code extension не копировался. Исследование других EDT-интеграций: [edt-ai-references.md](edt-ai-references.md).
+
+## UI/UX 0.5 — baseline 36e9baf
+
+| UX-подход официального IDE | В Codex for EDT 0.5 | Ограничение |
+|---|---|---|
+| Компактный sidebar header | Native header, Новый чат/обновить/настройки/аккаунт, tooltip, Tab | Собственные иконки; не копия assets OpenAI |
+| Список разговоров | Активная строка, hover, относительное время, усечение, полное имя в tooltip | Серверная история остаётся источником истины |
+| Выделенный composer | Скруглённый контейнер, input/footer, placeholder, круглая Send/Stop, model/reasoning | SWT/JFace, без Browser |
+| Видимый приложенный контекст | До 5 удаляемых ссылок на файлы проекта; +/меню | Не upload; читается сохранённый файл; вне cwd запрещено |
+| Permissions control | Read-only indicator и chip «Подтверждения», disabled auto-approve | Foundation без новых approval RPC |
+| Читаемый диалог | Роли, фон пользователя, code blocks, межстрочные интервалы | Native Markdown, сложные таблицы не добавлены |
+| Темы | Palette из EDT, одноцветные масштабируемые glyphs | Chrome системных Combo/scrollbars зависит от EDT/Windows |
+
+Исследование официального UX и публичных артефактов Напарника: [ui-ux-research.md](ui-ux-research.md). Не реализованы write mode, file changes, approvals flow, queue/steer или Apply/Reject. Один thread обслуживает несколько turn, включая после Stop; lifecycle baseline сохраняется.

@@ -44,8 +44,8 @@ public class IdeViewTest {
             view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex");
             var shell = view.getSite().getShell();
             var prompt = (Text) find(shell, "prompt"); var response = (StyledText) find(shell, "response");
-            var send = (Button) find(shell, "send"); var models = (Combo) find(shell, "model"); var levels = (Combo) find(shell, "reasoning");
-            assertEquals("Спросите Codex", ((Label) find(shell, "placeholder")).getText());
+            var send = find(shell, "send"); var models = (Combo) find(shell, "model"); var levels = (Combo) find(shell, "reasoning");
+            assertEquals("Спросите Codex…", ((Label) find(shell, "placeholder")).getText());
             waitFor(models::isEnabled, 30, () -> { });
             assertEquals("Default Model", models.getText()); assertEquals("Среднее", levels.getText());
             models.select(0); models.notifyListeners(SWT.Selection, new Event());
@@ -83,7 +83,7 @@ public class IdeViewTest {
                 assertFalse(transcript.contains("LATE_A")); assertFalse(transcript.contains("AFTER_ITEM_COMPLETE"));
                 assertFalse(transcript.contains("DUPLICATE_ITEM"));
             }
-            var newChat = (Button) find(shell, "newThread"); var chats = (Table) find(shell, "threads");
+            var newChat = find(shell, "newThread"); var chats = (Table) find(shell, "threads");
             waitFor(() -> chats.getItemCount() == 1 && newChat.isEnabled(), 10, () -> { });
             prompt.setText("Черновик"); newChat.notifyListeners(SWT.Selection, new Event());
             waitFor(() -> session.snapshot().threadId().isEmpty() && newChat.isEnabled(), 10, () -> { });

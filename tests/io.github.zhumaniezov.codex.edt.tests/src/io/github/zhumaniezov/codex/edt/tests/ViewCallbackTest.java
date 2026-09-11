@@ -32,7 +32,7 @@ public class ViewCallbackTest {
         var view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex");
         try {
             var shell = view.getSite().getShell(); var prompt = (Text) find(shell, "prompt");
-            var send = (Button) find(shell, "send"); var response = (StyledText) find(shell, "response");
+            var send = find(shell, "send"); var response = (StyledText) find(shell, "response");
             prompt.setText("Вопрос A"); waitFor(send::isEnabled, 10, () -> { });
             send.notifyListeners(SWT.Selection, new Event()); waitFor(() -> client.consumers.size() == 1, 5, () -> { });
             client.consumers.get(0).accept("PARTIAL_A"); client.answers.get(0).complete("PARTIAL_A");

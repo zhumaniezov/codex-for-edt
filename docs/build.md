@@ -209,3 +209,6 @@ Maven location поддерживается современной PDE. Если
 ## Ресурсы иконок
 
 Для обычной Java/Tycho сборки Node.js не нужен: SVG и готовые PNG входят в проект. Для изменения artwork можно выполнить `node scripts/generate-icons.cjs` с доступным модулем sharp (в этой работе использован уже установленный runtime). Генератор читает SVG и создаёт каждый размер отдельно; ничего не скачивает и не устанавливает. Лицензия оригинальных иконок: `icons/LICENSE.txt`.
+
+
+Для UI/UX 0.5 состав runtime/p2 не расширен: Browser, JavaFX и web runtime не добавлены. Новые glyphs отрисовываются SWT GC. `UiPresentationTest` и `UiDesignTest` включены в Maven/PDE и полный EDT smoke; UI-снимки находятся в локальном test target/`.runtime`, в установочный ZIP не входят.

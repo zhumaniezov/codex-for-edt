@@ -31,7 +31,7 @@ public final class EdtStartupCheck implements IStartup {
                 var result = Boolean.getBoolean("codex.edt.live")
                     ? JUnitCore.runClasses(CodexLiveTest.class)
                     : JUnitCore.runClasses(CodexViewTest.class, AppServerClientTest.class, StreamingViewTest.class, SessionFeaturesTest.class, EditorBufferTest.class, MarkdownTest.class, IdeViewTest.class,
-                        LifecycleViewTest.class, DeferredClientTest.class, TurnRoutingTest.class, ViewCallbackTest.class, SettingsServiceTest.class, FileLinkTest.class, SettingsUiTest.class);
+                        LifecycleViewTest.class, DeferredClientTest.class, TurnRoutingTest.class, ViewCallbackTest.class, SettingsServiceTest.class, FileLinkTest.class, SettingsUiTest.class, UiPresentationTest.class, UiDesignTest.class);
                 result.getFailures().forEach(failure -> System.err.println(failure.getTrace()));
                 String report = (result.wasSuccessful() ? "PASS" : "FAIL")
                     + " product=" + product.getId() + " tests=" + result.getRunCount()

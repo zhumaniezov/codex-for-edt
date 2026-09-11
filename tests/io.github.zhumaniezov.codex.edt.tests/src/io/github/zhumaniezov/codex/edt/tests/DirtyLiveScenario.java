@@ -36,7 +36,7 @@ final class DirtyLiveScenario {
             doc.set(code); editor.getSelectionProvider().setSelection(new TextSelection(doc, 0, 0));
             assertTrue(editor.isDirty());
             view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex"); var shell = view.getSite().getShell();
-            var prompt = (Text) find(shell, "prompt"); var send = (Button) find(shell, "send");
+            var prompt = (Text) find(shell, "prompt"); var send = find(shell, "send");
             var response = (StyledText) find(shell, "response");
             prompt.setText("Какой код сейчас находится в открытом модуле?"); waitFor(() -> send.isEnabled() && !Boolean.TRUE.equals(send.getData("codex.running")), 60, () -> { });
             waitFor(() -> send.isEnabled() && !Boolean.TRUE.equals(send.getData("codex.running")), 15, () -> { });

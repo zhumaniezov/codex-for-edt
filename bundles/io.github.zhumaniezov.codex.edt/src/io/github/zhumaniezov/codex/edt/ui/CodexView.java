@@ -28,11 +28,13 @@ public final class CodexView extends ViewPart {
     private ChatComponent chat;
     private StatusComponent status;
     private AccountComponent account;
-    private Button reconnect;
-    private Button newChat;
-    private Button older;
+    private IconButton reconnect;
+    private IconButton newChat;
+    private IconButton older;
     private FileLinkService links;
-    private Button refresh;
+    private IconButton refresh;
+    private AttachmentController attachments;
+    private ThemePalette palette;
     private Display display;
     private Composite root;
     private volatile long responseEpoch;
@@ -50,40 +52,35 @@ public final class CodexView extends ViewPart {
     @Override public void createPartControl(Composite parent) {
         root = parent; display = parent.getDisplay();
         parent.addDisposeListener(event -> closeResources());
-        var layout = new GridLayout(1, false); layout.marginWidth = 8; layout.marginHeight = 6; layout.verticalSpacing = 5; parent.setLayout(layout);
+        var layout = new GridLayout(1, false); layout.marginWidth = 12; layout.marginHeight = 8; layout.verticalSpacing = 8; parent.setLayout(layout);
+        palette=new ThemePalette(parent);palette.apply(parent,"panel","text");
         SettingsAccess.attach(client);
         links = new FileLinkService(parent, () -> client.snapshot().cwd(), () -> getSite().getPage());
-        var header = new Composite(parent, SWT.NONE); header.setLayout(new GridLayout(5, false));
-        header.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        var title = new Label(header, SWT.NONE); title.setText("Codex"); title.setFont(JFaceResources.getHeaderFont());
-        title.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        newChat = new Button(header, SWT.PUSH); IconResources.button(newChat, "newChat", tr("text005")); newChat.setData("codex.role", "newThread");
-        newChat.addListener(SWT.Selection, event -> action(client.newThread(), ignored -> {
-            chat.clear(); composer.prompt.setText(""); historyCursor = ""; older.setEnabled(false);
-            composer.context(""); composer.prompt.setFocus();
+        var header=new HeaderComponent(parent,palette);newChat=header.newChat;refresh=header.refresh;account=header.account;var settings=header.settings;
+        newChat.addListener(SWT.Selection,event->action(client.newThread(),ignored->{
+            chat.clear();composer.prompt.setText("");attachments.clear();historyCursor="";older.setEnabled(false);composer.context("");composer.prompt.setFocus();
         }));
-        refresh = new Button(header, SWT.PUSH); refresh.setData("codex.role", "refreshThreads");
-        IconResources.button(refresh, "refresh", tr("refresh")); refresh.addListener(SWT.Selection, event -> loadThreads(""));
-        var settings = new Button(header, SWT.PUSH); settings.setData("codex.role", "settings"); IconResources.button(settings, "settings", tr("settings"));
-        account = new AccountComponent(header);
+        refresh.addListener(SWT.Selection,event->loadThreads(""));
         settings.addListener(SWT.Selection, event -> {
             PreferenceDialog dialog = PreferencesUtil.createPreferenceDialogOn(parent.getShell(),
                 "io.github.zhumaniezov.codex.edt.preferences", null, null);
             if (dialog != null) { dialog.open(); status.showDiagnostic(); }
         });
-        threads = new ThreadListComponent(parent, this::resume, this::loadThreads);
-        var tools = new Composite(parent, SWT.NONE); tools.setLayout(new GridLayout(2, false));
+        threads = new ThreadListComponent(parent, palette, this::resume, this::loadThreads);
+        var tools = new Composite(parent, SWT.NONE); tools.setLayout(new GridLayout(4, false));palette.apply(tools,"panel","muted");
+        var conversationLabel=new Label(tools,SWT.NONE);conversationLabel.setText(tr("conversation"));conversationLabel.setLayoutData(new GridData(SWT.FILL,SWT.CENTER,true,false));palette.apply(conversationLabel,"panel","muted");
         tools.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        reconnect = new Button(tools, SWT.PUSH); IconResources.button(reconnect, "refresh", Messages.RECONNECT()); reconnect.setData("codex.role", "reconnect");
+        status = new StatusComponent(parent, tools, palette);
+        reconnect = new IconButton(tools,palette,"refresh",Messages.RECONNECT(),false); reconnect.setData("codex.role", "reconnect");
         reconnect.addListener(SWT.Selection, event -> connect());
-        older = new Button(tools, SWT.PUSH); IconResources.button(older, "history", tr("text035")); older.setEnabled(false);
+        older = new IconButton(tools,palette,"history",tr("text035"),false); older.setEnabled(false);
         older.addListener(SWT.Selection, event -> action(client.history(historyCursor), page -> {
             chat.history(page.messages(), true); historyCursor = page.cursor(); update();
         }));
-        status = new StatusComponent(parent);
-        chat = new ChatComponent(parent, links::open);
-        composer = new ComposerComponent(parent, this::sendMessage, this::stop, (model, effort) ->
-            action(client.select(model, effort), ignored -> { }));
+        chat = new ChatComponent(parent, palette, links::open);
+        composer = new ComposerComponent(parent, palette, this::sendMessage, this::stop, (model, effort) ->
+            action(client.select(model, effort), ignored -> { }), () -> attachments.menu());
+        attachments=new AttachmentController(parent,composer.attachments,()->contextProvider.capture(getSite().getPage()),this::showError);
         client.setListener(new CodexClient.Listener() {
             public void status(String text) { ui(() -> status.text(text)); }
             public void changed(Snapshot snapshot) { ui(() -> CodexView.this.changed(snapshot)); }
@@ -107,7 +104,7 @@ public final class CodexView extends ViewPart {
         client.connect().whenComplete((connection, error) -> ui(() -> {
             busy = false; ready = error == null;
             if (error == null) {
-                chat.clear(); historyCursor = ""; changed(client.snapshot()); ready = true;
+                chat.clear(); attachments.clear(); historyCursor = ""; changed(client.snapshot()); ready = true;
                 status.text(tr("text027")); loadThreads("");
             } else {
                 showError(error);
@@ -135,7 +132,7 @@ public final class CodexView extends ViewPart {
         if (busy || !ready) { return; }
         action(client.resume(id), page -> {
             chat.history(page.messages(), false); historyCursor = page.cursor(); composer.prompt.setText("");
-            composer.context(tr("text036")); update();
+            attachments.clear();composer.context(tr("text036")); update();
         });
     }
     private void sendMessage() {
@@ -149,11 +146,11 @@ public final class CodexView extends ViewPart {
             composer.context(module + (context.dirty() ? tr("text037") : ""));
             long epoch = ++responseEpoch;
             busy = true; update(); chat.begin(message); composer.prompt.setText("");
-            client.send(new ChatRequest(message, context), text -> stream(epoch, text)).whenComplete((reply, error) -> ui(() -> {
+            attachments.references(context).thenCompose(refs -> client.send(new ChatRequest(message, context, refs), text -> stream(epoch, text))).whenComplete((reply, error) -> ui(() -> {
                 if (epoch != responseEpoch) { return; }
                 responseEpoch++;
                 busy = false; running = false;
-                if (error == null) { chat.finish(reply); loadThreads(""); }
+                if (error == null) { attachments.clear();chat.finish(reply); loadThreads(""); }
                 else { showError(error); composer.prompt.setText(message); }
                 update();
             }));
@@ -197,6 +194,7 @@ public final class CodexView extends ViewPart {
     private void closeResources() {
         if (disposed) { return; }
         disposed = true; responseEpoch++; latestText.set(null);
+        if (attachments != null) { attachments.close(); }
         if (chat != null) { chat.close(); }
         SettingsAccess.detach(client); if (links != null) { links.close(); }
         client.close();

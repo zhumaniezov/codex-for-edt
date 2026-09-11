@@ -53,7 +53,7 @@ public final class ViewScenario {
             var shell = view.getSite().getShell();
             Text prompt = (Text) find(shell, "prompt");
             org.eclipse.swt.custom.StyledText response = (org.eclipse.swt.custom.StyledText) find(shell, "response");
-            Button send = (Button) find(shell, "send");
+            Control send = find(shell, "send");
             Label diagnostic = (Label) find(shell, "diagnostic");
             Label status = (Label) find(shell, "status");
             prompt.setText("Что делает выделенный код?");

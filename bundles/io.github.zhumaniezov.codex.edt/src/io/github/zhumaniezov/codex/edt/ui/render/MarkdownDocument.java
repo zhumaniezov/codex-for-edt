@@ -8,7 +8,9 @@ import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 
 /** Преобразует AST в текст и непересекающиеся диапазоны оформления без HTML. */
-public record MarkdownDocument(String text, List<Span> spans) {
+public record MarkdownDocument(String text, List<Span> spans, List<Block> blocks) {
+    public record Block(int start,int length,boolean user) { }
+    public MarkdownDocument(String text,List<Span> spans){this(text,spans,List.of());}
     public record Style(boolean bold, boolean italic, boolean code, String link) {
         static final Style PLAIN = new Style(false, false, false, "");
     }

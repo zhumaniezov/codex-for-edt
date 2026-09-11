@@ -49,7 +49,7 @@ public class CodexViewTest {
         var shell = window.getShell();
         Text prompt = (Text) find(shell, "prompt");
         org.eclipse.swt.custom.StyledText response = (org.eclipse.swt.custom.StyledText) find(shell, "response");
-        Button send = (Button) find(shell, "send");
+        Control send = find(shell, "send");
         assertEquals("Codex", view.getTitle());
         assertFalse(send.isEnabled());
         prompt.setText("  ");

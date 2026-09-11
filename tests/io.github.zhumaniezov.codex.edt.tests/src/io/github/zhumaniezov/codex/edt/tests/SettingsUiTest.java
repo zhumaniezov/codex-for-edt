@@ -56,9 +56,9 @@ public class SettingsUiTest {
         try {
             view = page.showView("io.github.zhumaniezov.codex.edt.views.Codex"); var shell = view.getSite().getShell();
             var model = (Combo) find(shell, "model"); waitFor(model::isEnabled, 15, () -> { });
-            assertEquals(language.equals("ru") ? "Спросите Codex" : "Ask Codex", ((Label) find(shell, "placeholder")).getText());
-            assertEquals(language.equals("ru") ? "Отправить" : "Send", ((Button) find(shell, "send")).getToolTipText());
-            for (String role : java.util.List.of("newThread", "refreshThreads", "settings", "account", "send")) { assertNotNull(((Button) find(shell, role)).getImage()); }
+            assertEquals(language.equals("ru") ? "Спросите Codex…" : "Ask Codex…", ((Label) find(shell, "placeholder")).getText());
+            assertEquals(language.equals("ru") ? "Отправить" : "Send", find(shell, "send").getToolTipText());
+            for (String role : java.util.List.of("newThread", "refreshThreads", "settings", "account", "send")) { assertNotNull(find(shell, role).getData("codex.icon")); }
             find(shell, "refreshThreads").notifyListeners(SWT.Selection, new Event()); assertTrue(session.processAlive());
             for (var element : Platform.getExtensionRegistry().getConfigurationElementsFor("org.eclipse.ui.preferencePages")) {
                 if (!element.getAttribute("id").startsWith("io.github.zhumaniezov.codex.edt.preferences")) { continue; }
@@ -83,7 +83,7 @@ public class SettingsUiTest {
                 var image = new org.eclipse.swt.graphics.Image(shell.getDisplay(), body.getSize().x, body.getSize().y);
                 var gc = new org.eclipse.swt.graphics.GC(body);
                 try { gc.copyArea(image,0,0); var loader = new org.eclipse.swt.graphics.ImageLoader(); loader.data = new org.eclipse.swt.graphics.ImageData[] {image.getImageData()};
-                    loader.save(java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "codex-stage4-"+language+".png").toString(), SWT.IMAGE_PNG);
+                    loader.save(java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "codex-stage5-"+language+".png").toString(), SWT.IMAGE_PNG);
                 } finally { gc.dispose(); image.dispose(); }
             } finally { body.setParent(original); preview.dispose(); original.layout(true,true); }
         } finally {

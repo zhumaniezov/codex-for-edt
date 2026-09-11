@@ -9,10 +9,10 @@ import io.github.zhumaniezov.codex.edt.client.SessionData.*;
 final class StatusComponent {
     private final Label status;
     private final Label diagnostic;
-    StatusComponent(Composite parent) {
-        status = new Label(parent, SWT.WRAP); status.setData("codex.role", "status");
-        status.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); status.setText(io.github.zhumaniezov.codex.edt.Messages.CONNECTING());
-        diagnostic = new Label(parent, SWT.WRAP); diagnostic.setData("codex.role", "diagnostic");
+    StatusComponent(Composite parent, Composite statusParent, ThemePalette palette) {
+        status = new Label(statusParent, SWT.NONE);palette.apply(status,"panel","muted"); status.setData("codex.role", "status");
+        status.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false)); status.setText(io.github.zhumaniezov.codex.edt.Messages.CONNECTING());
+        diagnostic = new Label(parent, SWT.WRAP);palette.apply(diagnostic,"panel","muted"); diagnostic.setData("codex.role", "diagnostic");
         diagnostic.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false)); showDiagnostic();
     }
     void text(String text) { status.setText(text); status.getParent().layout(true); }
