@@ -1,16 +1,19 @@
-param(
+﻿param(
     [string]$EdtHome = "$env:LOCALAPPDATA\1C\1cedtstart\installations\1C_EDT 2026.1\1cedt",
     [string]$JavaHome = 'C:\Program Files\Axiom\AxiomJDK-Pro-17-Full',
     [string]$PluginJar,
     [switch]$PrepareOnly,
-    [switch]$Smoke
+    [switch]$Smoke,
+    [switch]$Live,
+    [string]$CodexExecutable
 )
 # Запускает установленную EDT с отдельной конфигурацией и рабочей областью.
 # Исходная установка EDT при этом не изменяется.
 $ErrorActionPreference = 'Stop'
+if ($Live -and !$Smoke) { throw 'Параметр -Live используется вместе с -Smoke.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (!$PluginJar) {
-    $jar = Get-ChildItem -Path "$projectRoot\bundles\com.admglobal.codex.edt\target\*.jar" -ErrorAction SilentlyContinue |
+    $jar = Get-ChildItem -Path "$projectRoot\bundles\io.github.zhumaniezov.codex.edt\target\*.jar" -ErrorAction SilentlyContinue |
         Where-Object Name -NotMatch 'sources|javadoc' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($jar) { $PluginJar = $jar.FullName }
 }
@@ -24,7 +27,7 @@ $configuration = Join-Path $runRoot 'configuration'
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Force -Path $configuration,"$configuration\org.eclipse.equinox.simpleconfigurator","$runRoot\user-home","$runRoot\workspace","$runRoot\tmp" | Out-Null
 $lines = @(Get-Content -LiteralPath "$EdtHome\configuration\org.eclipse.equinox.simpleconfigurator\bundles.info" |
-    Where-Object { $_ -and !$_.StartsWith('#') -and !$_.StartsWith('com.admglobal.codex.edt,') })
+    Where-Object { $_ -and !$_.StartsWith('#') -and !$_.StartsWith('io.github.zhumaniezov.codex.edt,') })
 $active = @{}
 foreach ($line in $lines) {
     $parts = $line.Split(',')
@@ -38,9 +41,9 @@ try {
 } finally { $zip.Dispose() }
 $version = [regex]::Match($manifest, '(?m)^Bundle-Version: ([^\r\n]+)').Groups[1].Value
 if (!$version) { throw 'Bundle-Version is missing' }
-$lines += "com.admglobal.codex.edt,$version,$(([Uri]([IO.Path]::GetFullPath($PluginJar))).AbsoluteUri),4,false"
+$lines += "io.github.zhumaniezov.codex.edt,$version,$(([Uri]([IO.Path]::GetFullPath($PluginJar))).AbsoluteUri),4,false"
 if ($Smoke) {
-    $testJar = Join-Path $projectRoot 'tests\com.admglobal.codex.edt.tests\target\com.admglobal.codex.edt.tests-0.1.0-SNAPSHOT.jar'
+    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.2.0-SNAPSHOT.jar'
     if (!(Test-Path -LiteralPath $testJar)) { throw 'Build the test bundle before -Smoke' }
     $testZip = [IO.Compression.ZipFile]::OpenRead($testJar)
     try {
@@ -48,7 +51,7 @@ if ($Smoke) {
         try { $testManifest = $testReader.ReadToEnd() } finally { $testReader.Dispose() }
     } finally { $testZip.Dispose() }
     $testVersion = [regex]::Match($testManifest, '(?m)^Bundle-Version: ([^\r\n]+)').Groups[1].Value
-    $lines += "com.admglobal.codex.edt.tests,$testVersion,$(([Uri]$testJar).AbsoluteUri),4,false"
+    $lines += "io.github.zhumaniezov.codex.edt.tests,$testVersion,$(([Uri]$testJar).AbsoluteUri),4,false"
 }
 [IO.File]::WriteAllText("$configuration\org.eclipse.equinox.simpleconfigurator\bundles.info", "#version=1`n" + ($lines -join "`n") + "`n", $utf8)
 # Сохраняем обязательные свойства EDT, заменяя пути изменяемых данных установки.
@@ -72,6 +75,8 @@ $vm = @($ini[$vmStart..($ini.Length - 1)] | Where-Object {
 })
 $vm += @("-Duser.home=$runRoot\user-home", "-Djava.io.tmpdir=$runRoot\tmp", "-Djna.tmpdir=$runRoot\tmp", '-De1c.dt.monitoring.host=')
 if ($Smoke) { $vm += "-Dcodex.edt.smoke.result=$runRoot\result.txt" }
+if ($Live) { $vm += '-Dcodex.edt.live=true' }
+if ($CodexExecutable) { $vm += "-Dcodex.edt.executable=$CodexExecutable" }
 $launch = @($vm) + @('-jar', ([Uri]$active['org.eclipse.equinox.launcher']).LocalPath, '-install', $EdtHome,
     '-configuration', $configuration, '-data', "$runRoot\workspace", '-product', 'com._1c.g5.v8.dt.product.application.rcp',
     '-application', 'org.eclipse.ui.ide.workbench', '-pluginCustomization', "$PSScriptRoot\development-preferences.ini", '-consoleLog', '-nosplash')

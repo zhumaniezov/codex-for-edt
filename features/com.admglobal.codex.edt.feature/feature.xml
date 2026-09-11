@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<feature id="com.admglobal.codex.edt.feature" label="Codex for 1C:EDT"
-    version="0.1.0.qualifier" provider-name="ADM Global">
-  <description>Нативная панель Codex для 1C:EDT. Пока только локальные тестовые ответы.</description>
-  <copyright>Copyright (c) 2026 ADM Global.</copyright>
-  <license>Предварительная версия. Условия распространения пока не определены.</license>
-  <plugin id="com.admglobal.codex.edt" download-size="0" install-size="0" version="0.0.0" unpack="false"/>
-</feature>

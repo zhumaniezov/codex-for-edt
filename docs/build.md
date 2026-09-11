@@ -12,6 +12,7 @@
 - Maven 3.9.16, локальная распаковка при проверке:
   `C:\projects\codex-edt\apache-maven-3.9.16-bin\apache-maven-3.9.16`.
 - Tycho 4.0.5 скачивается Maven как зависимость сборки.
+- Для настоящих ответов: установленный Codex CLI **0.153.4** с действующим входом пользователя. Для обычной сборки и тестов он не нужен.
 
 Почему выбраны эти версии: [исследование](research.md). EDT 2026.2 / Java 25 требуют отдельного target и проверки.
 
@@ -40,11 +41,11 @@ Set-Location C:\projects\codex-edt
 
 Результаты:
 
-- `bundles/com.admglobal.codex.edt/target/*.jar` — плагин;
-- `features/com.admglobal.codex.edt.feature/target/*.jar` — feature;
-- `repositories/com.admglobal.codex.edt.repository/target/repository/` — установочный p2;
-- ZIP в `repositories/com.admglobal.codex.edt.repository/target/` — переносимая поставка;
-- `tests/com.admglobal.codex.edt.tests/target/surefire-reports/` — результаты UI-теста;
+- `bundles/io.github.zhumaniezov.codex.edt/target/*.jar` — плагин;
+- `features/io.github.zhumaniezov.codex.edt.feature/target/*.jar` — feature;
+- `repositories/io.github.zhumaniezov.codex.edt.repository/target/repository/` — установочный p2;
+- ZIP в `repositories/io.github.zhumaniezov.codex.edt.repository/target/` — переносимая поставка;
+- `tests/io.github.zhumaniezov.codex.edt.tests/target/surefire-reports/` — результаты тестов протокола, процессов и SWT;
 - `.runtime/logs/maven-build.log` — полный журнал сборки.
 
 p2 содержит индексы content/artifacts, feature и bundle. Зависимости среды и test bundle в поставку не включаются. Первый запуск скачивает Eclipse/EDT p2 и Maven-артефакты; он заметно дольше последующих.
@@ -73,7 +74,21 @@ p2 содержит индексы content/artifacts, feature и bundle. Зав�
 .\scripts\start-dev-edt.ps1 -PrepareOnly
 ```
 
-Открытие панели: **Window → Show View → Other… → ADM Global → Codex**. Перетащите вкладку вправо. Для первого сообщения проект не нужен.
+Открытие панели: **Window → Show View → Other… → Codex → Codex**. Перетащите вкладку вправо. Для отправки сообщения откройте проект с существующим физическим каталогом и его BSL-модуль.
+
+## Codex и авторизация
+
+Плагин ищет исполняемый файл в таком порядке: Java property `codex.edt.executable`, переменная `CODEX_EDT_EXECUTABLE`, PATH, локальная установка приложения OpenAI Codex в `%LOCALAPPDATA%/OpenAI/Codex/bin`. Для запуска из скрипта можно явно передать путь:
+
+```powershell
+.\scripts\start-dev-edt.ps1 -CodexExecutable 'C:\tools\codex\codex.exe'
+```
+
+Замените пример фактическим путём. В PDE добавьте `-Dcodex.edt.executable=...` в **Arguments → VM arguments**. Глобальные переменные менять не требуется.
+
+При сообщении «Требуется вход в Codex» выполните в PowerShell `& 'полный путь к codex.exe' login`, завершите официальный вход, затем нажмите **Переподключить** в панели. Уже действующий вход используется через `account/read`. Плагин не читает auth-файлы и не хранит ключи. Вход через браузер из самой панели пока не реализован.
+
+Протокол проверен по schema установленной версии 0.153.4. После обновления Codex нужно повторить проверки; гарантии совместимости с непроверенной версией нет. Детали — в [исследовании app-server](app-server-research.md).
 
 ## Полноценная среда разработки плагинов PDE
 
@@ -119,9 +134,9 @@ PDE/Target Platform могут докачивать зависимости. Ес
 Штатный способ описан в [руководстве 1С](https://edt.1c.ru/dev/ru/docs/plugins/project/build-install-publish-project/).
 
 1. В обычной EDT: **Help → Install New Software… → Add…**.
-2. **Local…** → каталог `repositories/com.admglobal.codex.edt.repository/target/repository`, либо **Archive…** → ZIP из `target`.
-3. Выберите **ADM Global → Codex for 1C:EDT**, затем **Next**.
-4. Проверьте состав устанавливаемых компонентов и условия предварительной поставки; завершите мастер. Если EDT предупреждает о неподписанном артефакте, проверяйте, что это собранный вами плагин ADM Global.
+2. **Local…** → каталог `repositories/io.github.zhumaniezov.codex.edt.repository/target/repository`, либо **Archive…** → ZIP из `target`.
+3. Выберите **Codex → Codex for 1C:EDT**, затем **Next**.
+4. Проверьте состав устанавливаемых компонентов и условия предварительной поставки; завершите мастер. Если EDT предупреждает о неподписанном артефакте, проверяйте, что это собранный вами плагин Codex.
 5. Перезапустите EDT и откройте Codex через Show View.
 
 Удаление: **Help → About → Installation Details → Installed Software → Codex for 1C:EDT → Uninstall…**, затем перезапуск. Установка в вашу обычную EDT в ходе разработки автоматически не выполняется.
@@ -142,7 +157,15 @@ Harness запускает Eclipse workbench без автоматических
 .\scripts\start-dev-edt.ps1 -Smoke
 ```
 
-Она запускает отдельную одноразовую workspace `.runtime/edt-smoke-<timestamp>`, подключает test bundle, выполняет UI-тест после старта EDT и закрывает окно. Результат — `result.txt` и `edt.log` в этой папке. В обычном интерактивном запуске test bundle не подключается. Не закрывайте тестовое окно до завершения сценария.
+Она запускает отдельную одноразовую workspace `.runtime/edt-smoke-<timestamp>`, подключает test bundle, выполняет тесты протокола, процессов и UI после старта EDT и закрывает окно. Результат — `result.txt` и `edt.log` в этой папке. В обычном интерактивном запуске test bundle не подключается. Не закрывайте тестовое окно до завершения сценария.
+
+Отдельная проверка настоящего Codex:
+
+```powershell
+.\scripts\start-dev-edt.ps1 -Smoke -Live
+```
+
+Требуются существующая авторизация и доступ к сервису Codex. Тест расходует лимиты пользователя: создаёт временный проект, выделяет `Сообщить("Привет");`, отправляет вопрос из View, проверяет потоковый ответ и неизменность всех файлов по SHA-256. Информационные базы не запускаются. `-Live` разрешён только вместе с `-Smoke`.
 
 ## Типовые проблемы
 
@@ -153,3 +176,7 @@ Harness запускает Eclipse workbench без автоматических
 - **Нет Eclipse Application в Run As** — в IDE отсутствует PDE либо bundle импортирован не как Plug-in Project.
 - **Нет Codex в Show View** — проверьте активный target, подключённый bundle/feature и вкладку Error Log.
 - **Workspace is in use** — закройте предыдущую тестовую EDT; не удаляйте lock у запущенной среды.
+- **Codex не найден** — укажите существующий `codex.exe` через `-CodexExecutable`.
+- **Требуется вход в Codex** — выполните штатный `codex login` и переподключитесь.
+- **Codex отключён / ошибка** — подробности в **Window → Show View → Error Log**, затем **Переподключить**. Не включайте полный доступ для исправления ошибки.
+- **У проекта нет физического каталога** — откройте файловый проект EDT; путь вида `/Проект/src/...` является путём ресурса Eclipse и не подходит для cwd.

@@ -15,6 +15,7 @@
       <unit id="org.eclipse.sdk.feature.group" version="0.0.0"/>
       <!-- Реализация, необходимая для совместимого набора библиотек Hamcrest. -->
       <unit id="org.hamcrest" version="0.0.0"/>
+      <unit id="com.google.gson" version="0.0.0"/>
     </location>
   </locations>
   <environment><os>win32</os><ws>win32</ws><arch>x86_64</arch></environment>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+  <extension point="org.eclipse.ui.views">
+    <category id="io.github.zhumaniezov.codex.edt.category" name="Codex"/>
+    <view id="io.github.zhumaniezov.codex.edt.views.Codex" name="Codex"
+        category="io.github.zhumaniezov.codex.edt.category"
+        class="io.github.zhumaniezov.codex.edt.ui.CodexView" restorable="true" allowMultiple="false">
+      <description>Codex for 1C:EDT — потоковые ответы Codex App Server в режиме чтения.</description>
+    </view>
+  </extension>
+</plugin>

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$MavenHome,
     [string]$JavaHome = 'C:\Program Files\Axiom\AxiomJDK-Pro-17-Full'
 )

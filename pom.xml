@@ -3,7 +3,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.admglobal.codex</groupId><artifactId>bom</artifactId><version>0.1.0-SNAPSHOT</version>
+    <groupId>io.github.zhumaniezov.codex</groupId><artifactId>bom</artifactId><version>0.2.0-SNAPSHOT</version>
     <relativePath>bom/pom.xml</relativePath>
   </parent>
   <artifactId>parent</artifactId><packaging>pom</packaging>

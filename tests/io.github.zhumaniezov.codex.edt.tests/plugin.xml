@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <extension point="org.eclipse.ui.startup">
+    <startup class="io.github.zhumaniezov.codex.edt.tests.EdtStartupCheck"/>
+  </extension>
+  <extension point="org.eclipse.core.runtime.applications" id="smoke">
+    <application><run class="io.github.zhumaniezov.codex.edt.tests.SmokeApplication"/></application>
+  </extension>
+</plugin>
