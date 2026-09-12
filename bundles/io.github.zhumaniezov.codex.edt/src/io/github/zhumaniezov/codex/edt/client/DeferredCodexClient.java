@@ -56,6 +56,20 @@ public final class DeferredCodexClient implements CodexClient {
                 delegate = created;
             }
             created.setListener(new Listener() {
+                public void semanticApproval(io.github.zhumaniezov.codex.edt.semantic.SemanticApproval value) {
+                    if (closed) {
+                        value.answer(false);
+                    } else {
+                        listener.semanticApproval(value);
+                    }
+                }
+
+                public void semanticResult(com.google.gson.JsonObject value) {
+                    if (!closed) {
+                        listener.semanticResult(value);
+                    }
+                }
+
                 public void approval(AgentApproval value) {
                     if (!closed) {
                         listener.approval(value);

@@ -81,6 +81,13 @@ public interface CodexClient extends AutoCloseable {
     }
 
     interface Listener {
+        default void semanticApproval(io.github.zhumaniezov.codex.edt.semantic.SemanticApproval value) {
+            value.answer(false);
+        }
+
+        default void semanticResult(com.google.gson.JsonObject value) {
+        }
+
         default void approval(AgentApproval request) {
         }
 

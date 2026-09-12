@@ -56,6 +56,8 @@ public final class CodexSessionService implements CodexClient {
     private final LinkedHashMap<String, AgentApproval> approvals = new LinkedHashMap<>();
     private boolean reloadPermissions;
     private AgentActivity activity;
+    private volatile io.github.zhumaniezov.codex.edt.semantic.SemanticSession semantic;
+    private volatile CompletableFuture<Void> bridgeTermination = CompletableFuture.completedFuture(null);
 
     @Override
     public PermissionMode permissionMode() {
@@ -218,7 +220,10 @@ public final class CodexSessionService implements CodexClient {
     }
 
     public CompletableFuture<Void> termination() {
-        return rpc == null ? CompletableFuture.completedFuture(null) : rpc.termination();
+        var tools = semantic;
+        return CompletableFuture.allOf(rpc == null ? CompletableFuture.completedFuture(null) : rpc.termination(),
+                tools == null ? CompletableFuture.completedFuture(null) : tools.idle().toCompletableFuture(),
+                bridgeTermination);
     }
 
     private void state(State state) {
@@ -315,11 +320,15 @@ public final class CodexSessionService implements CodexClient {
                     version = CodexExecutable.version(executable);
                     command = ReadOnlyPolicy.command(executable);
                 }
+                if (semantic == null) {
+                    semantic = new io.github.zhumaniezov.codex.edt.semantic.SemanticSession(() -> listener);
+                }
                 rpc = new CodexAppServerClient(command, null, (method, params) -> enqueue(() -> {
                     if (!closed && current == generation) {
                         notification(method, params);
                     }
-                }), error -> enqueue(() -> connectionLost(current, error)), diagnostics, Duration.ofSeconds(45));
+                }), error -> enqueue(() -> connectionLost(current, error)), diagnostics, Duration.ofSeconds(45),
+                        semantic.environment());
                 rpc.onServerRequest(message -> enqueue(() -> {
                     if (!closed && current == generation) {
                         serverRequest(message);
@@ -331,7 +340,7 @@ public final class CodexSessionService implements CodexClient {
                 }
                 var bundle = FrameworkUtil.getBundle(CodexSessionService.class);
                 call("initialize", object("clientInfo", object("name", "codex_edt", "title", "Codex for 1C:EDT",
-                        "version", bundle == null ? "0.6.0" : bundle.getVersion().toString())));
+                        "version", bundle == null ? "0.7.0" : bundle.getVersion().toString())));
                 rpc.notify("initialized");
                 initialized = true;
                 JsonObject response = call("account/read", object("refreshToken", false));
@@ -366,6 +375,9 @@ public final class CodexSessionService implements CodexClient {
                 if (rpc != null && snapshot.state() != State.AUTH_REQUIRED) {
                     rpc.close();
                     initialized = false;
+                }
+                if (closed && semantic != null) {
+                    bridgeTermination = CompletableFuture.runAsync(semantic::close);
                 }
                 connection = null;
                 if (snapshot.state() != State.AUTH_REQUIRED) {
@@ -430,6 +442,9 @@ public final class CodexSessionService implements CodexClient {
     }
 
     private void detach() throws Exception {
+        if (semantic != null) {
+            semantic.end();
+        }
         clearApprovals();
         if (!threadId.isBlank()) {
             call("thread/unsubscribe", object("threadId", threadId));
@@ -455,8 +470,13 @@ public final class CodexSessionService implements CodexClient {
     }
 
     private JsonObject safeConfig(Path directory) throws Exception {
-        return ReadOnlyPolicy.config(call("config/read", object("includeLayers", false, "cwd", directory.toString()))
-                .getAsJsonObject("config"));
+        var config = ReadOnlyPolicy
+                .config(call("config/read", object("includeLayers", false, "cwd", directory.toString()))
+                        .getAsJsonObject("config"));
+        if (semantic != null) {
+            semantic.configure(config, directory);
+        }
+        return config;
     }
 
     @Override
@@ -543,8 +563,15 @@ public final class CodexSessionService implements CodexClient {
 
     @Override
     public CompletionStage<Void> interrupt() {
+        if (semantic != null) {
+            semantic.end();
+        }
         return operation(() -> {
             if (active != null) {
+                // turn/start мог создать permit между нажатием Stop и этой задачей.
+                if (semantic != null) {
+                    semantic.end();
+                }
                 clearApprovals();
                 state(State.STOPPING);
                 try {
@@ -626,6 +653,15 @@ public final class CodexSessionService implements CodexClient {
                 active = turn;
                 state(State.WORKING);
                 var params = AgentPolicy.turn(permissionMode, threadId, projectDirectory, connection.model(), request);
+                if (semantic != null) {
+                    String key = semantic.begin(threadId, permissionMode);
+                    if (!key.isBlank()) {
+                        var input = params.getAsJsonArray("input").get(0).getAsJsonObject();
+                        input.addProperty("text", "[EDT native tools: current turnKey=" + key
+                                + ". Pass this turnKey in EVERY edt_* call. Use native EDT tools for metadata; never create/edit metadata XML manually.]\n"
+                                + string(input, "text"));
+                    }
+                }
                 if (!effort.isBlank()) {
                     params.addProperty("effort", effort);
                 }
@@ -633,6 +669,9 @@ public final class CodexSessionService implements CodexClient {
                 turn.id = string(result.getAsJsonObject("turn"), "id");
                 if (turn.id.isEmpty()) {
                     throw new IOException(tr("text064"));
+                }
+                if (semantic != null) {
+                    semantic.bind(turn.id);
                 }
                 activity = new AgentActivity(threadId, turn.id);
                 listener.activity(activity.snapshot());
@@ -747,24 +786,35 @@ public final class CodexSessionService implements CodexClient {
                     listener.activity(activity.snapshot());
                 }
                 var completed = params.getAsJsonObject("turn");
-                active = null;
-                String status = string(completed, "status");
-                if (status.equals("completed") || status.equals("interrupted")) {
-                    state(status.equals("interrupted") ? State.STOPPED : State.READY);
-                    turn.future.complete(turn.text());
-                } else {
-                    state(State.ERROR);
-                    String message = completed.has("error") && completed.get("error").isJsonObject()
-                            ? redact(string(completed.getAsJsonObject("error"), "message"))
-                            : status;
-                    turn.future.completeExceptionally(new IOException(tr("text069") + message));
+                if (semantic != null) {
+                    semantic.end();
                 }
+                var idle = semantic == null ? CompletableFuture.<Void>completedFuture(null) : semantic.idle();
+                idle.whenComplete((ignored, idleError) -> enqueue(() -> finishTurn(turn, completed)));
             }
             default -> {
             }
             }
         } catch (Throwable error) {
             connectionLost(generation, unwrap(error));
+        }
+    }
+
+    private void finishTurn(ActiveTurn turn, JsonObject completed) {
+        if (closed || active != turn) {
+            return;
+        }
+        active = null;
+        String status = string(completed, "status");
+        if (status.equals("completed") || status.equals("interrupted")) {
+            state(status.equals("interrupted") ? State.STOPPED : State.READY);
+            turn.future.complete(turn.text());
+        } else {
+            state(State.ERROR);
+            String message = completed.has("error") && completed.get("error").isJsonObject()
+                    ? redact(string(completed.getAsJsonObject("error"), "message"))
+                    : status;
+            turn.future.completeExceptionally(new IOException(tr("text069") + message));
         }
     }
 
@@ -781,6 +831,9 @@ public final class CodexSessionService implements CodexClient {
             return;
         }
         connection = null;
+        if (semantic != null) {
+            semantic.end();
+        }
         clearApprovals();
         if (rpc != null) {
             rpc.close();
@@ -804,6 +857,11 @@ public final class CodexSessionService implements CodexClient {
     @Override
     public void close() {
         closed = true;
+        var tools = semantic;
+        if (tools != null) {
+            tools.end();
+            bridgeTermination = CompletableFuture.runAsync(tools::close);
+        }
         var current = rpc;
         if (current != null) {
             current.close();

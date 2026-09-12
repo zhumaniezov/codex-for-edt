@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$EdtHome = "$env:LOCALAPPDATA\1C\1cedtstart\installations\1C_EDT 2026.1\1cedt",
     [string]$JavaHome = 'C:\Program Files\Axiom\AxiomJDK-Pro-17-Full',
     [switch]$SkipSmoke
@@ -10,7 +10,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $bundleId = 'io.github.zhumaniezov.codex.edt'
 $testId = "$bundleId.tests"
 $featureId = "$bundleId.feature"
-$version = '0.6.0.v' + (Get-Date -Format 'yyyyMMddHHmmss')
+$version = '0.7.0.v' + (Get-Date -Format 'yyyyMMddHHmmss')
 $runRoot = Join-Path $projectRoot ".runtime\local-$version"
 $configuration = Join-Path $runRoot 'configuration'
 $repository = Join-Path $runRoot 'repository'
@@ -62,7 +62,7 @@ foreach ($item in @(@{ Id=$bundleId; Folder='bundles' }, @{ Id=$testId; Folder='
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
         Copy-Item -LiteralPath $_.FullName -Destination $destination
     }
-    $manifest = (Get-Content -LiteralPath "$sourceRoot\META-INF\MANIFEST.MF" -Raw).Replace('0.6.0.qualifier', $version)
+    $manifest = (Get-Content -LiteralPath "$sourceRoot\META-INF\MANIFEST.MF" -Raw).Replace('0.7.0.qualifier', $version)
     $manifestPath = Join-Path $runRoot "$id.MF"
     Write-Utf8 $manifestPath $manifest
     $jarPath = Join-Path $runRoot "source\plugins\$id`_$version.jar"
@@ -86,13 +86,13 @@ $builtJars[$testId] = $testJar
 
 $featureSource = Join-Path $runRoot 'feature'
 $featureXml = (Get-Content -LiteralPath "$projectRoot\features\$featureId\feature.xml" -Raw).
-    Replace('0.6.0.qualifier', $version).Replace('version="0.0.0"', "version=`"$version`"")
+    Replace('0.7.0.qualifier', $version).Replace('version="0.0.0"', "version=`"$version`"")
 Write-Utf8 "$featureSource\feature.xml" $featureXml
 New-Item -ItemType Directory -Force -Path "$runRoot\source\features" | Out-Null
 & "$JavaHome\bin\jar.exe" --create --file "$runRoot\source\features\$featureId`_$version.jar" -C $featureSource feature.xml
 if ($LASTEXITCODE -ne 0) { throw 'Feature packaging failed' }
 
-# Для Publisher и тестового приложения достаточно Eclipse workbench без автозапуска БМ.
+# Для Publisher достаточно Eclipse runtime без автозапуска БМ.
 # Компиляция выше использует библиотеки точной установленной версии EDT.
 # Полный продукт EDT запускается отдельной проверкой.
 $runtimeLines = @($bundleLines | Where-Object { $_ -notmatch '^(com\._1c\.|com\.e1c\.|com\.1c\.|com\.company1c\.|org\.eclipse\.oomph\.|org\.eclipse\.egit\.)' })
@@ -132,9 +132,9 @@ Compress-Archive -Path "$repository\*" -DestinationPath $archive
 Write-Host "Local p2 archive: $archive"
 
 if (!$SkipSmoke) {
-    & "$JavaHome\bin\java.exe" @javaArgs -application "$testId.smoke" `
+    & "$PSScriptRoot\start-dev-edt.ps1" -EdtHome $EdtHome -JavaHome $JavaHome `
+        -PluginJar $builtJars[$bundleId] -TestPluginJar $builtJars[$testId] -Smoke `
         2>&1 | Tee-Object -FilePath "$runRoot\smoke.log"
-    if ($LASTEXITCODE -ne 0) { throw 'Eclipse UI smoke test failed. See smoke.log.' }
 }
 Write-Utf8 "$projectRoot\.runtime\last-local-check.txt" $runRoot
 Write-Host "Local verification complete: $runRoot"

@@ -52,11 +52,17 @@ public final class CodexAppServerClient implements AutoCloseable {
 
     public CodexAppServerClient(List<String> command, Path directory, BiConsumer<String, JsonObject> notifications,
             Consumer<Throwable> disconnected, Consumer<String> diagnostics, Duration timeout) throws IOException {
+        this(command, directory, notifications, disconnected, diagnostics, timeout, java.util.Map.of());
+    }
+
+    public CodexAppServerClient(List<String> command, Path directory, BiConsumer<String, JsonObject> notifications,
+            Consumer<Throwable> disconnected, Consumer<String> diagnostics, Duration timeout,
+            java.util.Map<String, String> environment) throws IOException {
         this.notifications = notifications;
         this.disconnected = disconnected;
         this.timeout = timeout;
         try {
-            process = new CodexProcessManager(command, directory);
+            process = new CodexProcessManager(command, directory, environment);
         } catch (IOException error) {
             timeouts.shutdownNow();
             throw error;

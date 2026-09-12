@@ -1,4 +1,26 @@
-# Архитектура 0.6
+# Архитектура 0.7
+
+## Нативная модель EDT
+
+```text
+Codex View → ProjectContextResolver → thread cwd = физический EDT-проект
+    → CodexSessionService → codex app-server (stdio)
+        → session MCP override → LocalMcpBridge (Jetty, 127.0.0.1)
+            → SemanticSession (turn, права, dirty guard, approval)
+                → MetadataPlan / EdtMetadataService / EdtTypeService
+                    → public EDT factory + BM editing context
+                        → save(true) → model events / resources / Problems
+```
+
+Сервисы не зависят от SWT-контролов. `SemanticActivityComponent` показывает план и результаты; `SemanticApproval` завершает одно решение. Низкоуровневый транспорт не редактирует BM. HTTP-token и текущий turnKey выполняют разные роли: первый аутентифицирует экземпляр app-server, второй связывает инструмент с реальным текущим turn. Все write-вызовы дополнительно требуют живого project guard. Старые ключи и approvals недействительны после Stop/close/disconnect.
+
+`EdtServices` получает публичные OSGi-сервисы через освобождаемые `ServiceSupplier`. Один план — одна задача локального editing context, `save(true)`, затем освобождение контекста. Это позволяет дождаться native persistence, не генерируя XML и не сохраняя чужие dirty contexts. Транзакция откатывается EDT при исключении; ошибки файловой системы после commit не объявляются атомарным rollback.
+
+`ProjectContextResolver` отделяет проект от редактора: thread cwd → editor → Navigator → выбранный/единственный проект → chooser. Явная смена связанного проекта создаёт новый чат. Существующий `EclipseContextProvider` продолжает собирать dirty buffer и selection, когда редактор присутствует. Пустой startup не обращается к семантической модели.
+
+Временный MCP включается через stable `thread/start.config`/`thread/resume.config`; глобальные MCP не включаются автоматически. Процесс получает случайный bearer через environment, а config хранит только имя переменной. View dispose закрывает собственный HTTP endpoint и app-server; завершение ожидает текущие native операции перед освобождением guard. [Исследование и поддержанные API](edt-semantic-tools.md).
+
+## Сохранённый файловый агент 0.6
 
 В этой версии к принятой архитектуре 0.5 добавлен агентный слой. Исторические разделы ниже описывают этапы появления компонентов; актуальная политика прав определяется этим разделом и [agent-mode.md](agent-mode.md).
 

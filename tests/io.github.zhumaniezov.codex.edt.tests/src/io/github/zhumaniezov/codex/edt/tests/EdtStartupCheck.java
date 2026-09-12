@@ -26,19 +26,26 @@ public final class EdtStartupCheck implements IStartup {
                 }
                 String phase = System.getProperty("codex.edt.restore.phase");
                 if (phase != null) {
-                    RestoreScenario.run(phase);
+                    if (Boolean.getBoolean("codex.edt.semanticRestart")) {
+                        SemanticRestartScenario.run(phase);
+                    } else {
+                        RestoreScenario.run(phase);
+                    }
                     Files.writeString(Path.of(resultPath), "PASS restart=" + phase + " product=" + product.getId());
                     return;
                 }
-                var result = Boolean.getBoolean("codex.edt.agentLive") ? JUnitCore.runClasses(AgentLiveTest.class)
-                        : Boolean.getBoolean("codex.edt.live") ? JUnitCore.runClasses(CodexLiveTest.class)
-                                : JUnitCore.runClasses(AgentModeTest.class, AgentWorkspaceTest.class,
-                                        CodexViewTest.class, AppServerClientTest.class, StreamingViewTest.class,
-                                        SessionFeaturesTest.class, EditorBufferTest.class, MarkdownTest.class,
-                                        IdeViewTest.class, LifecycleViewTest.class, DeferredClientTest.class,
-                                        TurnRoutingTest.class, ViewCallbackTest.class, SettingsServiceTest.class,
-                                        FileLinkTest.class, SettingsUiTest.class, UiPresentationTest.class,
-                                        UiDesignTest.class);
+                var result = Boolean.getBoolean("codex.edt.semanticLive") ? JUnitCore.runClasses(SemanticLiveTest.class)
+                        : Boolean.getBoolean("codex.edt.agentLive") ? JUnitCore.runClasses(AgentLiveTest.class)
+                                : Boolean.getBoolean("codex.edt.live") ? JUnitCore.runClasses(CodexLiveTest.class)
+                                        : JUnitCore.runClasses(SemanticEdtTest.class, SemanticContractTest.class,
+                                                SemanticBridgeTest.class, ProjectResolverTest.class,
+                                                AgentModeTest.class, AgentWorkspaceTest.class, CodexViewTest.class,
+                                                AppServerClientTest.class, StreamingViewTest.class,
+                                                SessionFeaturesTest.class, EditorBufferTest.class, MarkdownTest.class,
+                                                IdeViewTest.class, LifecycleViewTest.class, DeferredClientTest.class,
+                                                TurnRoutingTest.class, ViewCallbackTest.class,
+                                                SettingsServiceTest.class, FileLinkTest.class, SettingsUiTest.class,
+                                                UiPresentationTest.class, UiDesignTest.class);
                 result.getFailures().forEach(failure -> System.err.println(failure.getTrace()));
                 String report = (result.wasSuccessful() ? "PASS" : "FAIL") + " product=" + product.getId() + " tests="
                         + result.getRunCount() + " failures=" + result.getFailureCount();

@@ -1,5 +1,13 @@
 # Исследование Codex App Server
 
+## Уточнение для 0.7 — 12 сентября 2026
+
+Перед semantic-этапом executable обновился до **codex-cli 0.154.0-alpha.6.2**, `%LOCALAPPDATA%\OpenAI\Codex\bin\bffc5354119c8421\codex.exe`. Повторно выполнены `--version`, `app-server --help` и генерация JSON Schema в игнорируемый `.runtime/app-server-schema-v070`. На этой версии выполнены реальные тесты; обратная совместимость новых инструментов с прежним executable 0.153.4 отдельно не заявляется.
+
+`dynamicTools` остаётся experimental и не используется. Native-инструменты EDT подключены через стабильный MCP Streamable HTTP и проверенные `thread/start.config` / `thread/resume.config`: локальный URL, `enabled`, `bearer_token_env_var`, таймауты. `experimentalApi` не включается, собственных RPC Codex не добавлено. Собственный JSON Schema metadata plan относится к MCP-инструменту EDT, а не к App Server. Подробности и границы: [EDT Semantic Tools](edt-semantic-tools.md).
+
+Ниже сохранено исследование предыдущих этапов с версией, актуальной на момент их проверки.
+
 Дата: 11 сентября 2026 года. Первоначальное исследование выполнено до второго этапа; перед третьим этапом команды и schema проверены повторно.
 
 ## Проверенная версия и источники

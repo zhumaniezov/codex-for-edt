@@ -1,11 +1,14 @@
-﻿param(
+param(
     [string]$EdtHome = "$env:LOCALAPPDATA\1C\1cedtstart\installations\1C_EDT 2026.1\1cedt",
     [string]$JavaHome = 'C:\Program Files\Axiom\AxiomJDK-Pro-17-Full',
     [string]$PluginJar,
+    [string]$TestPluginJar,
     [switch]$PrepareOnly,
     [switch]$Smoke,
     [switch]$Live,
     [switch]$AgentLive,
+    [switch]$SemanticLive,
+    [switch]$SemanticRestart,
     [string]$CodexExecutable,
     [ValidateSet("seed", "restore")][string]$RestartPhase,
     [ValidatePattern("^[a-zA-Z0-9-]+$")][string]$RestartName,
@@ -14,7 +17,7 @@
 # Запускает установленную EDT с отдельной конфигурацией и рабочей областью.
 # Исходная установка EDT при этом не изменяется.
 $ErrorActionPreference = 'Stop'
-if (($Live -or $AgentLive) -and !$Smoke) { throw 'Параметр -Live используется вместе с -Smoke.' }
+if (($Live -or $AgentLive -or $SemanticLive) -and !$Smoke) { throw 'Параметры live используются вместе с -Smoke.' }
 if ($RestartPhase -and (!$Smoke -or !$RestartName)) { throw 'Для restart нужны -Smoke и -RestartName.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (!$PluginJar) {
@@ -54,7 +57,9 @@ if (!(Test-Path -LiteralPath $commonmark)) { throw 'Сначала выполн�
 $lines = @($lines | Where-Object { !$_.StartsWith('org.commonmark,') })
 $lines += "org.commonmark,0.30.0,$(([Uri]$commonmark).AbsoluteUri),4,false"
 if ($Smoke) {
-    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.6.0-SNAPSHOT.jar'
+    $testJar = if ($TestPluginJar) { [IO.Path]::GetFullPath($TestPluginJar) } else {
+        Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.7.0-SNAPSHOT.jar'
+    }
     if (!(Test-Path -LiteralPath $testJar)) { throw 'Build the test bundle before -Smoke' }
     $testZip = [IO.Compression.ZipFile]::OpenRead($testJar)
     try {
@@ -90,6 +95,8 @@ if ($RestartProject) { $vm += ("-Dcodex.edt.restore.project64=" + [Convert]::ToB
 if ($RestartPhase) { $vm += "-Dcodex.edt.restore.phase=$RestartPhase" }
 if ($Live) { $vm += '-Dcodex.edt.live=true' }
 if ($AgentLive) { $vm += '-Dcodex.edt.agentLive=true' }
+if ($SemanticLive) { $vm += '-Dcodex.edt.semanticLive=true' }
+if ($SemanticRestart) { $vm += '-Dcodex.edt.semanticRestart=true' }
 if ($CodexExecutable) { $vm += "-Dcodex.edt.executable=$CodexExecutable" }
 $launch = @($vm) + @('-jar', ([Uri]$active['org.eclipse.equinox.launcher']).LocalPath, '-install', $EdtHome,
     '-configuration', $configuration, '-data', "$runRoot\workspace", '-product', 'com._1c.g5.v8.dt.product.application.rcp',

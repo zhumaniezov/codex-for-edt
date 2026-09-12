@@ -16,6 +16,14 @@ import org.eclipse.ui.ide.ResourceUtil;
  * записи агента.
  */
 public final class ProjectWriteGuard implements AutoCloseable {
+    private static final java.util.concurrent.ConcurrentMap<IProject, ProjectWriteGuard> ACTIVE = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile boolean valid = true;
+
+    public static boolean protectedProject(IProject project) {
+        var guard = ACTIVE.get(project);
+        return guard != null && guard.valid;
+    }
+
     private final IWorkbench workbench;
     private final IProject project;
     private final Runnable abort;
@@ -76,6 +84,9 @@ public final class ProjectWriteGuard implements AutoCloseable {
 
     public static ProjectWriteGuard acquire(IWorkbench workbench, Shell shell, String directory, Runnable abort) {
         var guard = new ProjectWriteGuard(workbench, project(directory), abort);
+        if (ACTIVE.containsKey(guard.project)) {
+            throw new IllegalStateException(tr("projectBusy"));
+        }
         var dirty = guard.editors().stream().filter(IEditorPart::isDirty).toList();
         if (!dirty.isEmpty()) {
             String names = dirty.stream().map(p -> p.getEditorInput().getName()).distinct()
@@ -94,6 +105,7 @@ public final class ProjectWriteGuard implements AutoCloseable {
         try {
             guard.lockEditors();
             workbench.addWindowListener(guard.windows);
+            ACTIVE.put(guard.project, guard);
             return guard;
         } catch (RuntimeException error) {
             guard.close();
@@ -164,6 +176,7 @@ public final class ProjectWriteGuard implements AutoCloseable {
         try {
             lockEditors();
         } catch (RuntimeException error) {
+            valid = false;
             abort.run();
         }
     }
@@ -174,6 +187,8 @@ public final class ProjectWriteGuard implements AutoCloseable {
             return;
         }
         closed = true;
+        valid = false;
+        ACTIVE.remove(project, this);
         workbench.removeWindowListener(windows);
         pages.forEach(p -> p.removePartListener(parts));
         locked.forEach((control, enabled) -> {

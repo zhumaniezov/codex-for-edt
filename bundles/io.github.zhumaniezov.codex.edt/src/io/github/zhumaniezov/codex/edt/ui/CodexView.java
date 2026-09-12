@@ -25,10 +25,14 @@ public final class CodexView extends ViewPart {
     public static final String ID = "io.github.zhumaniezov.codex.edt.views.Codex";
     private final CodexClient client = new DeferredCodexClient(CodexPlugin::createClient, CodexPlugin::release);
     private final ContextProvider contextProvider = new EclipseContextProvider();
+    private ProjectContextResolver projectResolver;
+    private Button projectSelector;
     private ComposerComponent composer;
     private ThreadListComponent threads;
     private ChatComponent chat;
     private AgentActivityComponent activity;
+    private SemanticActivityComponent semanticActivity;
+    private String chosenDirectory = "";
     private ProjectWriteGuard writeGuard;
     private StatusComponent status;
     private AccountComponent account;
@@ -71,12 +75,20 @@ public final class CodexView extends ViewPart {
         SettingsAccess.attach(client);
         links = new FileLinkService(parent, () -> client.snapshot().cwd(), () -> getSite().getPage());
         var header = new HeaderComponent(parent, palette);
+        projectSelector = new Button(parent, SWT.FLAT);
+        projectSelector.setText(tr("projectChoose"));
+        projectSelector.setToolTipText(tr("projectChooseMessage"));
+        projectSelector.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        projectSelector.addListener(SWT.Selection, event -> chooseProject());
         newChat = header.newChat;
         refresh = header.refresh;
         account = header.account;
         var settings = header.settings;
         newChat.addListener(SWT.Selection, event -> action(client.newThread(), ignored -> {
             chat.clear();
+            semanticActivity.clear();
+            chosenDirectory = "";
+            projectSelector.setText(tr("projectChoose"));
             if (activity != null) {
                 activity.clear();
             }
@@ -123,6 +135,7 @@ public final class CodexView extends ViewPart {
                         showError(error);
                     }
                 })), links::open);
+        semanticActivity = new SemanticActivityComponent(parent, palette);
         composer = new ComposerComponent(parent, palette, this::sendMessage, this::stop,
                 (model, effort) -> action(client.select(model, effort), ignored -> {
                 }), () -> attachments.menu());
@@ -131,6 +144,30 @@ public final class CodexView extends ViewPart {
         attachments = new AttachmentController(parent, composer.attachments,
                 () -> contextProvider.capture(getSite().getPage()), this::showError);
         client.setListener(new CodexClient.Listener() {
+            public void semanticApproval(io.github.zhumaniezov.codex.edt.semantic.SemanticApproval value) {
+                if (disposed) {
+                    value.answer(false);
+                    return;
+                }
+                ui(() -> {
+                    if (!value.thread().equals(client.snapshot().threadId())) {
+                        value.answer(false);
+                        return;
+                    }
+                    semanticActivity.approval(value);
+                    threads.compact(true);
+                });
+            }
+
+            public void semanticResult(com.google.gson.JsonObject value) {
+                ui(() -> {
+                    if (io.github.zhumaniezov.codex.edt.protocol.CodexProtocol.string(value, "threadId")
+                            .equals(client.snapshot().threadId())) {
+                        semanticActivity.result(value);
+                    }
+                });
+            }
+
             public void approval(AgentApproval value) {
                 ui(() -> {
                     activity.approval(value);
@@ -274,6 +311,11 @@ public final class CodexView extends ViewPart {
         }
         action(client.resume(id), page -> {
             activity.clear();
+            semanticActivity.clear();
+            chosenDirectory = "";
+            var bound = ProjectContextResolver.find(client.snapshot().cwd());
+            projectSelector.setText(
+                    bound == null ? tr("projectBoundUnavailable") : tr("projectLabel") + " " + bound.getName());
             chat.history(page.messages(), false);
             historyCursor = page.cursor();
             composer.prompt.setText("");
@@ -289,7 +331,7 @@ public final class CodexView extends ViewPart {
             return;
         }
         try {
-            var captured = contextProvider.capture(getSite().getPage());
+            var captured = captureContext();
             if (client.permissionMode().writes()) {
                 String protectedDirectory = captured.projectDirectory();
                 writeGuard = ProjectWriteGuard.acquire(getSite().getWorkbenchWindow().getWorkbench(), root.getShell(),
@@ -300,16 +342,17 @@ public final class CodexView extends ViewPart {
                 if (writeGuard == null) {
                     return;
                 }
-                captured = contextProvider.capture(getSite().getPage());
+                captured = captureContext();
                 if (!protectedDirectory.equals(captured.projectDirectory())) {
                     throw new IllegalStateException(tr("agentContextChanged"));
                 }
             }
             var context = io.github.zhumaniezov.codex.edt.settings.EdtPreferencesService.context(captured);
             project = context.projectName();
+            projectSelector.setText(tr("projectLabel") + " " + project);
             status.details(client.snapshot(), project + "\n" + context.projectDirectory());
             String module = context.modulePath().substring(context.modulePath().lastIndexOf('/') + 1);
-            composer.context(module + (context.dirty() ? tr("text037") : ""));
+            composer.context((module.isBlank() ? project : module) + (context.dirty() ? tr("text037") : ""));
             long epoch = ++responseEpoch;
             busy = true;
             update();
@@ -347,6 +390,8 @@ public final class CodexView extends ViewPart {
                             update();
                         }));
                     });
+        } catch (java.util.concurrent.CancellationException cancelled) {
+            releaseGuard();
         } catch (RuntimeException error) {
             releaseGuard();
             busy = false;
@@ -359,6 +404,50 @@ public final class CodexView extends ViewPart {
         if (writeGuard != null) {
             writeGuard.close();
             writeGuard = null;
+        }
+    }
+
+    private ProjectContextResolver projects() {
+        if (projectResolver == null) {
+            projectResolver = new ProjectContextResolver();
+        }
+        return projectResolver;
+    }
+
+    private EditorContext captureContext() {
+        String bound = client.snapshot().threadId().isBlank() ? chosenDirectory : client.snapshot().cwd();
+        return projects().capture(getSite().getPage(), root.getShell(), bound);
+    }
+
+    private void chooseProject() {
+        if (busy) {
+            return;
+        }
+        try {
+            var value = projects().choose(root.getShell(), projects().candidates());
+            if (value == null) {
+                return;
+            }
+            if (!client.snapshot().threadId().isBlank()) {
+                if (!org.eclipse.jface.dialogs.MessageDialog.openQuestion(root.getShell(), tr("projectChoose"),
+                        tr("projectNewThread"))) {
+                    return;
+                }
+                action(client.newThread(), ignored -> {
+                    chat.clear();
+                    activity.clear();
+                    semanticActivity.clear();
+                    attachments.clear();
+                    composer.prompt.setText("");
+                    chosenDirectory = ProjectContextResolver.directory(value);
+                    projectSelector.setText(tr("projectLabel") + " " + value.getName());
+                });
+            } else {
+                chosenDirectory = ProjectContextResolver.directory(value);
+                projectSelector.setText(tr("projectLabel") + " " + value.getName());
+            }
+        } catch (RuntimeException error) {
+            showError(error);
         }
     }
 
@@ -390,6 +479,7 @@ public final class CodexView extends ViewPart {
     }
 
     private void update() {
+        projectSelector.setEnabled(!busy && !running);
         composer.state(ready, busy, running);
         reconnect.setEnabled(!busy && !running);
         newChat.setEnabled(ready && !busy);
@@ -440,6 +530,9 @@ public final class CodexView extends ViewPart {
             return;
         }
         disposed = true;
+        if (projectResolver != null) {
+            projectResolver.close();
+        }
         responseEpoch++;
         latestText.set(null);
         if (attachments != null) {
