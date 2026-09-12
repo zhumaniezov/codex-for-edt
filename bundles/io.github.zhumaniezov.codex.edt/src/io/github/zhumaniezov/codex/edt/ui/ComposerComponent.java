@@ -13,6 +13,7 @@ final class ComposerComponent {
     final IconButton send;
     private final IconButton add;
     final AttachmentChipBar attachments;
+    final PermissionSelector permissions;
     private final Combo models;
     private final Combo efforts;
     private final Label context;
@@ -133,11 +134,7 @@ final class ComposerComponent {
         add = new IconButton(badges, palette, "plus", tr("attach"), false);
         add.setData("codex.role", "attach");
         add.addListener(SWT.Selection, event -> attach.run());
-        var mode = new Label(badges, SWT.NONE);
-        mode.setText(tr("readOnly"));
-        mode.setToolTipText(tr("approvalHint"));
-        palette.apply(mode, "footer", "muted");
-        new ApprovalStatusComponent(badges, palette);
+        permissions = new PermissionSelector(badges, palette);
         var options = new Composite(footer, SWT.NONE);
         var ol = new GridLayout(3, false);
         ol.marginWidth = 0;
@@ -248,6 +245,7 @@ final class ComposerComponent {
                 !prompt.getText().isBlank());
         send.setEnabled(state.canSend() || state.canStop());
         add.setEnabled(!busy && !running);
+        permissions.button.setEnabled(ready && !busy && !running);
         attachments.enabled(!busy && !running);
         models.setEnabled(ready && !busy && !catalog.isEmpty());
         efforts.setEnabled(ready && !busy && !levels.isEmpty());

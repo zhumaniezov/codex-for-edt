@@ -23,24 +23,46 @@ public final class CodexAppServerClient implements AutoCloseable {
     private final AtomicLong sequence = new AtomicLong();
     private final ConcurrentHashMap<String, CompletableFuture<JsonObject>> pending = new ConcurrentHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final java.util.concurrent.ScheduledExecutorService timeouts =
-        Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "codex-edt-rpc-timeouts"); t.setDaemon(true); return t;
-        });
+    private final java.util.concurrent.ScheduledExecutorService timeouts = Executors
+            .newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "codex-edt-rpc-timeouts");
+                t.setDaemon(true);
+                return t;
+            });
     private final BiConsumer<String, JsonObject> notifications;
     private final Consumer<Throwable> disconnected;
     private final Duration timeout;
+    private volatile Consumer<JsonObject> serverRequests;
+    private final ConcurrentHashMap<String, JsonElement> incoming = new ConcurrentHashMap<>();
 
-    public CodexAppServerClient(List<String> command, Path directory,
-            BiConsumer<String, JsonObject> notifications, Consumer<Throwable> disconnected,
-            Consumer<String> diagnostics, Duration timeout) throws IOException {
+    public void onServerRequest(Consumer<JsonObject> handler) {
+        serverRequests = handler;
+    }
+
+    public void respond(JsonElement id, JsonObject response) throws IOException {
+        if (closed.get() || incoming.remove(idKey(id)) == null) {
+            throw new IOException(tr("approvalExpired"));
+        }
+        process.write(object("id", id, "result", response).toString());
+    }
+
+    public void resolved(JsonElement id) {
+        incoming.remove(idKey(id));
+    }
+
+    public CodexAppServerClient(List<String> command, Path directory, BiConsumer<String, JsonObject> notifications,
+            Consumer<Throwable> disconnected, Consumer<String> diagnostics, Duration timeout) throws IOException {
         this.notifications = notifications;
         this.disconnected = disconnected;
         this.timeout = timeout;
-        try { process = new CodexProcessManager(command, directory); }
-        catch (IOException error) { timeouts.shutdownNow(); throw error; }
-        process.read(this::receive, line -> diagnostics.accept(redact(line.length() > 4096 ? line.substring(0, 4096) : line)),
-            this::fail);
+        try {
+            process = new CodexProcessManager(command, directory);
+        } catch (IOException error) {
+            timeouts.shutdownNow();
+            throw error;
+        }
+        process.read(this::receive,
+                line -> diagnostics.accept(redact(line.length() > 4096 ? line.substring(0, 4096) : line)), this::fail);
     }
 
     public CompletableFuture<JsonObject> request(String method, JsonObject params) {
@@ -66,7 +88,9 @@ public final class CodexAppServerClient implements AutoCloseable {
             }, timeout.toMillis(), TimeUnit.MILLISECONDS);
             future.whenComplete((result, error) -> timer.cancel(false));
             process.write(object("id", id, "method", method, "params", params).toString());
-        } catch (Exception error) { fail(error); }
+        } catch (Exception error) {
+            fail(error);
+        }
         return future;
     }
 
@@ -75,19 +99,31 @@ public final class CodexAppServerClient implements AutoCloseable {
     }
 
     private void receive(String line) {
-        if (closed.get()) { return; }
+        if (closed.get()) {
+            return;
+        }
         try {
             JsonObject message = parse(line);
             if (message.has("method")) {
                 String method = string(message, "method");
                 if (message.has("id")) {
-                    process.write(object("id", message.get("id"), "error",
-                        object("code", -32601, "message", tr("text091"))).toString());
+                    if (serverRequests != null) {
+                        String key = idKey(message.get("id"));
+                        if (incoming.putIfAbsent(key, message.get("id").deepCopy()) != null) {
+                            throw new IOException(tr("approvalDuplicate"));
+                        }
+                        serverRequests.accept(message.deepCopy());
+                        return;
+                    }
+                    process.write(
+                            object("id", message.get("id"), "error", object("code", -32601, "message", tr("text091")))
+                                    .toString());
                     fail(new IOException(tr("text092") + method));
                     return;
                 }
                 JsonObject params = message.has("params") && message.get("params").isJsonObject()
-                    ? message.getAsJsonObject("params") : new JsonObject();
+                        ? message.getAsJsonObject("params")
+                        : new JsonObject();
                 notifications.accept(method, params);
                 return;
             }
@@ -99,12 +135,14 @@ public final class CodexAppServerClient implements AutoCloseable {
             }
             String key = idKey(message.get("id"));
             var future = pending.get(key);
-            if (future == null) { return; }
+            if (future == null) {
+                return;
+            }
             try {
                 if (message.has("error")) {
                     var error = message.getAsJsonObject("error");
-                    future.completeExceptionally(new IOException("Codex RPC " + string(error, "code") + ": "
-                        + redact(string(error, "message"))));
+                    future.completeExceptionally(new IOException(
+                            "Codex RPC " + string(error, "code") + ": " + redact(string(error, "message"))));
                 } else if (message.get("result").isJsonObject()) {
                     future.complete(message.getAsJsonObject("result"));
                 } else {
@@ -116,34 +154,55 @@ public final class CodexAppServerClient implements AutoCloseable {
             } finally {
                 pending.remove(key, future);
             }
-        } catch (Exception error) { fail(error); }
+        } catch (Exception error) {
+            fail(error);
+        }
     }
 
-    private static String idKey(JsonElement id) {
+    public static String idKey(JsonElement id) {
         if (id.isJsonPrimitive()) {
             var value = id.getAsJsonPrimitive();
-            if (value.isString()) { return "s:" + value.getAsString(); }
-            if (value.isNumber()) { return "n:" + value.getAsBigDecimal().toBigIntegerExact(); }
+            if (value.isString()) {
+                return "s:" + value.getAsString();
+            }
+            if (value.isNumber()) {
+                return "n:" + value.getAsBigDecimal().toBigIntegerExact();
+            }
         }
         throw new IllegalArgumentException(tr("text097"));
     }
 
     private void fail(Throwable error) {
-        if (!closed.compareAndSet(false, true)) { return; }
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
         pending.values().forEach(f -> f.completeExceptionally(error));
         pending.clear();
+        incoming.clear();
         process.close();
         timeouts.shutdownNow();
         disconnected.accept(error);
     }
 
-    public long pid() { return process.pid(); }
-    public boolean isAlive() { return !closed.get() && process.isAlive(); }
-    public boolean processAlive() { return process.isAlive(); }
-    public CompletableFuture<Void> termination() { return process.termination(); }
+    public long pid() {
+        return process.pid();
+    }
+
+    public boolean isAlive() {
+        return !closed.get() && process.isAlive();
+    }
+
+    public boolean processAlive() {
+        return process.isAlive();
+    }
+
+    public CompletableFuture<Void> termination() {
+        return process.termination();
+    }
 
     @Override
     public void close() {
+        incoming.clear();
         if (closed.compareAndSet(false, true)) {
             pending.values().forEach(f -> f.completeExceptionally(new IOException(tr("text098"))));
             pending.clear();

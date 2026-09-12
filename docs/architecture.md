@@ -1,3 +1,35 @@
+# Архитектура 0.6
+
+В этой версии к принятой архитектуре 0.5 добавлен агентный слой. Исторические разделы ниже описывают этапы появления компонентов; актуальная политика прав определяется этим разделом и [agent-mode.md](agent-mode.md).
+
+```text
+Codex View / PermissionSelector / AgentActivityComponent
+    → DeferredCodexClient → CodexSessionService
+    → CodexAppServerClient (stdio JSONL, requests/responses/notifications)
+    → собственный codex app-server → Codex
+```
+
+- `PermissionOptions` отображает requirements и доступность встроенных профилей; `AgentPolicy` строит stable sandbox overrides и проверяет effective response. `PermissionMode` содержит документированные варианты UI; backend определяет, какие из них разрешены.
+- `AgentApproval` хранит исходный RPC id, thread/turn/item и только запрошенные права. Реестр сессии включает generation соединения. Закрытие, завершение turn, crash и resolved делают старые решения недействительными.
+- `AgentActivity` собирает fileChange/commandExecution/diff отдельно от текста assistant; поздние события другого turn игнорируются. Окна stdout обновляются из snapshots через UI dispatcher; чтение процесса не блокирует SWT.
+- `ProjectWriteGuard` использует публичные `IWorkbench`, `IWorkbenchPage`, `IEditorPart`, `ResourceUtil`, `ITextOperationTarget/ITextViewer`, SWT Control. Явное сохранение вызывается через `saveEditor`; на время записи контролы редакторов отключаются, затем восстанавливают прежнее enabled-состояние. Новые редакторы отслеживаются через part/window listeners. Невозможность защитить редактор останавливает работу.
+- `ProjectRefreshService` выполняет `IProject.refreshLocal(DEPTH_INFINITE)` в Job с правилом проекта после write turn, включая ошибки/interrupt. Создание и удаление обновляют родительские ресурсы; standard resource events остаются за Eclipse/EDT.
+- `DiffReviewService` использует публичные `PatchParser`, `IHunk`, `DiffNode`, `CompareEditorInput` и `CompareUI`. Берёт исходный/изменённый контекст hunk из серверного diff. Оба края Compare read-only. `IFilePatch2.apply` не вызывается. Отдельное native окно хранит полный полученный unified diff.
+
+Один thread содержит несколько turn. При смене режима серверный thread отписывается и возобновляется с тем же id и новой политикой перед следующим запросом; процесс View не перезапускается. Управление настройками остаётся отдельным процессом без threads, чтобы MCP reload не менял инструменты активного агента.
+
+Если View закрывается во время записи, закрывается её процесс, после termination восстанавливается доступ к редакторам. Глобальные процессы Codex не затрагиваются.
+
+Необратимая ошибка turn, потеря аккаунта во время работы и неопределённый результат
+turn/start/interrupt завершают соединение и собственный процесс. UI не освобождает
+защиту редакторов, пока процесс ещё может записывать. После явного сохранения
+повторно проверяется, что активный проект не сменился. Approval дополнительно
+сверяется с уже зарегистрированным file/command item; кнопка review в нём фильтрует
+строго этот thread/turn/item. Add/delete Compare строит пустую сторону по kind,
+update разбирается публичным Eclipse PatchParser.
+
+## История архитектуры до 0.6
+
 # Архитектура версии 0.5
 
 ## Слои

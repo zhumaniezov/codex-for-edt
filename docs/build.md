@@ -212,3 +212,29 @@ Maven location поддерживается современной PDE. Если
 
 
 Для UI/UX 0.5 состав runtime/p2 не расширен: Browser, JavaFX и web runtime не добавлены. Новые glyphs отрисовываются SWT GC. `UiPresentationTest` и `UiDesignTest` включены в Maven/PDE и полный EDT smoke; UI-снимки находятся в локальном test target/`.runtime`, в установочный ZIP не входят.
+
+## Агентный режим 0.6
+
+Версия всех собственных bundles/features — `0.6.0`. Для просмотра diff добавлены
+штатные зависимости `org.eclipse.compare` и `org.eclipse.compare.core`, уже имеющиеся
+в целевой EDT 2026.1.3.25. Native Compare не изменяет файлы; обе стороны read-only.
+Browser/runtime и собственный patch engine не добавлены.
+
+```powershell
+.\scripts\build.ps1
+.\scripts\start-dev-edt.ps1 -Smoke
+.\scripts\start-dev-edt.ps1 -Smoke -AgentLive
+```
+
+`-AgentLive` допустим только вместе с `-Smoke`. Он создаёт одноразовый проект внутри
+`.runtime`, явно разрешает тестовые approvals кнопками View и удаляет только свою
+фикстуру после проверки. Сценарий: patch edit/create/delete, локальная Java-сборка
+и запуск тестового класса, отказ записи в соседний sentinel, возврат к чтению.
+Команды App Server исполняет в существующей Windows sandbox пользователя.
+Setup/elevation и запись глобальной конфигурации не выполняются.
+
+Для полного restart повторите приведённую выше пару seed/restore с именем
+`publication060`. Для интерактивной ручной приёмки обновите конфигурацию командой
+`scripts/start-dev-edt.ps1 -PrepareOnly`, затем запускайте без этого параметра.
+При повторной установке в обычную EDT используйте p2 ZIP версии 0.6 из `target`,
+а не архив прежней версии. Workspace и preferences удалять не требуется.

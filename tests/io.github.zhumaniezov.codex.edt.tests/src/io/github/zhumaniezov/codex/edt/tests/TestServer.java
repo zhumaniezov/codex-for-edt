@@ -19,6 +19,10 @@ public final class TestServer {
     }
 
     private static String root(Class<?> type) throws Exception {
+        var bundleFile = FileLocator.getBundleFileLocation(FrameworkUtil.getBundle(type)).orElseThrow();
+        if (bundleFile.isFile()) {
+            return bundleFile.getAbsolutePath();
+        }
         URL url = FileLocator.toFileURL(type.getResource(type.getSimpleName() + ".class"));
         if (url.getProtocol().equals("jar")) {
             return Path.of(((JarURLConnection) url.openConnection()).getJarFileURL().toURI()).toString();

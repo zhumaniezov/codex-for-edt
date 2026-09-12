@@ -96,3 +96,15 @@ UX исследован по [официальному IDE](https://learn.chatgp
 | Темы | Palette из EDT, одноцветные масштабируемые glyphs | Chrome системных Combo/scrollbars зависит от EDT/Windows |
 
 Исследование официального UX и публичных артефактов Напарника: [ui-ux-research.md](ui-ux-research.md). Не реализованы write mode, file changes, approvals flow, queue/steer или Apply/Reject. Один thread обслуживает несколько turn, включая после Stop; lifecycle baseline сохраняется.
+
+## Актуализация 0.6
+
+| Возможность | Реализация EDT 0.6 | Ограничение |
+| --- | --- | --- |
+| Permissions | Stable sandbox/approvalPolicy/approvalsReviewer; requirements и профильный каталог | Именованные profile overrides experimental, не используются |
+| Agent write | Изменение, создание, удаление через Codex | Только явный выбор режима; sandbox текущего проекта |
+| Approvals | Нативные блоки file/command/permissions, typed RPC id | Постоянные execpolicy/network rules не записываются |
+| Commands | Item lifecycle, потоковый вывод, exit code | Preview вывода ограничен; выполняет App Server |
+| Review | Unified diff и Eclipse Compare контекста hunk | Без собственного Apply/Undo/Revert |
+| Dirty buffer | Чтение по-прежнему передаёт buffer; запись требует сохранения | На время turn ввод в редакторы проекта защищён |
+| Refresh | Eclipse Job/resource change events | Без собственной семантической модели 1С |

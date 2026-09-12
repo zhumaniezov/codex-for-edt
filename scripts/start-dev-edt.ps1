@@ -5,6 +5,7 @@
     [switch]$PrepareOnly,
     [switch]$Smoke,
     [switch]$Live,
+    [switch]$AgentLive,
     [string]$CodexExecutable,
     [ValidateSet("seed", "restore")][string]$RestartPhase,
     [ValidatePattern("^[a-zA-Z0-9-]+$")][string]$RestartName,
@@ -13,7 +14,7 @@
 # Запускает установленную EDT с отдельной конфигурацией и рабочей областью.
 # Исходная установка EDT при этом не изменяется.
 $ErrorActionPreference = 'Stop'
-if ($Live -and !$Smoke) { throw 'Параметр -Live используется вместе с -Smoke.' }
+if (($Live -or $AgentLive) -and !$Smoke) { throw 'Параметр -Live используется вместе с -Smoke.' }
 if ($RestartPhase -and (!$Smoke -or !$RestartName)) { throw 'Для restart нужны -Smoke и -RestartName.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (!$PluginJar) {
@@ -53,7 +54,7 @@ if (!(Test-Path -LiteralPath $commonmark)) { throw 'Сначала выполн�
 $lines = @($lines | Where-Object { !$_.StartsWith('org.commonmark,') })
 $lines += "org.commonmark,0.30.0,$(([Uri]$commonmark).AbsoluteUri),4,false"
 if ($Smoke) {
-    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.5.0-SNAPSHOT.jar'
+    $testJar = Join-Path $projectRoot 'tests\io.github.zhumaniezov.codex.edt.tests\target\io.github.zhumaniezov.codex.edt.tests-0.6.0-SNAPSHOT.jar'
     if (!(Test-Path -LiteralPath $testJar)) { throw 'Build the test bundle before -Smoke' }
     $testZip = [IO.Compression.ZipFile]::OpenRead($testJar)
     try {
@@ -88,6 +89,7 @@ if ($Smoke) { $vm += "-Dcodex.edt.smoke.result=$runRoot\$resultFile" }
 if ($RestartProject) { $vm += ("-Dcodex.edt.restore.project64=" + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($RestartProject))) }
 if ($RestartPhase) { $vm += "-Dcodex.edt.restore.phase=$RestartPhase" }
 if ($Live) { $vm += '-Dcodex.edt.live=true' }
+if ($AgentLive) { $vm += '-Dcodex.edt.agentLive=true' }
 if ($CodexExecutable) { $vm += "-Dcodex.edt.executable=$CodexExecutable" }
 $launch = @($vm) + @('-jar', ([Uri]$active['org.eclipse.equinox.launcher']).LocalPath, '-install', $EdtHome,
     '-configuration', $configuration, '-data', "$runRoot\workspace", '-product', 'com._1c.g5.v8.dt.product.application.rcp',
@@ -105,7 +107,7 @@ if (!$PrepareOnly) {
         $process = Start-Process -FilePath "$JavaHome\bin\java.exe" -ArgumentList ('"@' + $argPath + '"') -WindowStyle Hidden -PassThru -RedirectStandardOutput "$runRoot\$logName.log" -RedirectStandardError "$runRoot\$logName.stderr.log"
         # В Windows PowerShell 5.1 handle нужен для надёжного чтения ExitCode после ожидания.
         $processHandle = $process.Handle
-        if (!$process.WaitForExit(300000)) { $process.Kill(); throw "Истекло время проверки EDT: $runRoot" }
+        if (!$process.WaitForExit(900000)) { $process.Kill(); throw "Истекло время проверки EDT: $runRoot" }
         if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath "$runRoot\$resultFile")) { throw "Проверка EDT не завершилась успешно; журналы: $runRoot\$logName.log и $runRoot\$logName.stderr.log" }
         $result = Get-Content -LiteralPath "$runRoot\$resultFile" -Raw
         if (!$result.StartsWith('PASS ')) { throw $result }

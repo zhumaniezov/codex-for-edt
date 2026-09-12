@@ -120,6 +120,13 @@ final class ThreadListComponent {
         more.setEnabled(value && !cursor.isBlank());
     }
 
+    void compact(boolean value) {
+        var section = table.getParent();
+        section.setVisible(!value);
+        ((GridData) section.getLayoutData()).exclude = value;
+        section.getParent().layout(true, true);
+    }
+
     void current(String id) {
         for (var item : table.getItems()) {
             if (((ThreadSummary) item.getData()).id().equals(id)) {
