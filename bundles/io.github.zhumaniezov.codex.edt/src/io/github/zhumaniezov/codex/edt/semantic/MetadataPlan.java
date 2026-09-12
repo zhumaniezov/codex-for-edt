@@ -16,6 +16,18 @@ public final class MetadataPlan {
         }
         for (var entry : value.getAsJsonArray("operations")) {
             var op = entry.getAsJsonObject();
+            if(Set.of("bslEdit","bslFormat").contains(text(op,"operation"))) {
+                if(value.getAsJsonArray("operations").size()!=1) throw new EdtToolException("INVALID_PROPERTY","Document edit must be a separate plan");
+                EdtBslService.validateEdit(op);continue;
+            }
+            if(text(op,"operation").equals("validateProject")) {
+                if(value.getAsJsonArray("operations").size()!=1) throw new EdtToolException("INVALID_PROPERTY","Validation must be a separate plan");
+                requireKeys(op,Set.of("operation"));continue;
+            }
+            if (MetadataOperations.ACTIONS.contains(text(op, "operation"))) {
+                MetadataOperations.validate(op);
+                continue;
+            }
             requireKeys(op, Set.of("operation", "name", "objectKind", "catalog", "tabularSection", "synonym",
                     "properties", "attributes", "tabularSections", "type"));
             String action = text(op, "operation");
@@ -99,7 +111,7 @@ public final class MetadataPlan {
         if (type == null) {
             throw new IllegalArgumentException("type");
         }
-        requireKeys(type, Set.of("kind", "length", "precision", "scale", "fractions", "catalog"));
+        requireKeys(type, Set.of("kind", "length", "precision", "scale", "fractions", "catalog", "name", "types"));
         switch (text(type, "kind")) {
         case "String" -> range(type, "length", 0, 1024);
         case "Number" -> {
@@ -114,6 +126,19 @@ public final class MetadataPlan {
             }
         }
         case "CatalogRef" -> name(text(type, "catalog"));
+        case "DocumentRef", "EnumRef", "ChartOfCharacteristicTypesRef", "ChartOfAccountsRef",
+                "ChartOfCalculationTypesRef", "ExchangePlanRef", "BusinessProcessRef", "TaskRef" -> name(text(type, "name"));
+        case "Composite" -> {
+            if (!type.has("types") || !type.get("types").isJsonArray() || type.getAsJsonArray("types").isEmpty()
+                    || type.getAsJsonArray("types").size() > 16) throw new EdtToolException("INVALID_TYPE", "composite types: 1..16");
+            var primitives = new java.util.HashSet<String>();
+            for (var item : type.getAsJsonArray("types")) {
+                var member = item.getAsJsonObject(); String kind = text(member, "kind");
+                if (kind.equals("Composite") || (!kind.endsWith("Ref") && !primitives.add(kind)))
+                    throw new EdtToolException("INVALID_TYPE", "Repeated/nested composite member");
+                validateType(member);
+            }
+        }
         default -> throw new IllegalArgumentException("type.kind");
         }
     }

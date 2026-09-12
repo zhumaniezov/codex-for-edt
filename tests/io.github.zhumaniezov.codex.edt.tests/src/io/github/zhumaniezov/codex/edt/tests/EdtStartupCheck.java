@@ -34,10 +34,13 @@ public final class EdtStartupCheck implements IStartup {
                     Files.writeString(Path.of(resultPath), "PASS restart=" + phase + " product=" + product.getId());
                     return;
                 }
-                var result = Boolean.getBoolean("codex.edt.semanticLive") ? JUnitCore.runClasses(SemanticLiveTest.class)
+                var result = Boolean.getBoolean("codex.edt.capabilityProbe") ? JUnitCore.runClasses(CapabilityProbeTest.class)
+                        : Boolean.getBoolean("codex.edt.toolPlatform") ? JUnitCore.runClasses(NativePlatformTest.class)
+                        : Boolean.getBoolean("codex.edt.toolPlatformLive") ? JUnitCore.runClasses(NativePlatformLiveTest.class)
+                        : Boolean.getBoolean("codex.edt.semanticLive") ? JUnitCore.runClasses(SemanticLiveTest.class)
                         : Boolean.getBoolean("codex.edt.agentLive") ? JUnitCore.runClasses(AgentLiveTest.class)
                                 : Boolean.getBoolean("codex.edt.live") ? JUnitCore.runClasses(CodexLiveTest.class)
-                                        : JUnitCore.runClasses(SemanticEdtTest.class, SemanticContractTest.class,
+                                        : JUnitCore.runClasses(NativePlatformTest.class, NativeToolContractTest.class, SemanticEdtTest.class, SemanticContractTest.class,
                                                 SemanticBridgeTest.class, ProjectResolverTest.class,
                                                 AgentModeTest.class, AgentWorkspaceTest.class, CodexViewTest.class,
                                                 AppServerClientTest.class, StreamingViewTest.class,

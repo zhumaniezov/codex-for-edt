@@ -251,3 +251,12 @@ Setup/elevation и запись глобальной конфигурации н
 `scripts/start-dev-edt.ps1 -PrepareOnly`, затем запускайте без этого параметра.
 При повторной установке в обычную EDT используйте p2 ZIP версии 0.6 из `target`,
 а не архив прежней версии. Workspace и preferences удалять не требуется.
+
+
+## Версия 0.8
+
+EDT target закреплён: `com._1c.g5.v8.dt.rcp` 1.35.3, native feature 1.35.3.v202609041212, thirdparty feature 1.35.3. Это исследованная EDT 2026.1.3.25. Сборка по-прежнему JDK17/Maven3.9.16/Tycho4.0.5. Добавлены публичные bundles форм, BSL, derived data и Eclipse debug; Jetty10 imports ограничены диапазоном, чтобы транзитивный Jetty12 не менял HTTP bridge.
+
+После полной сборки используйте p2 ZIP **0.8.0** из `repositories/io.github.zhumaniezov.codex.edt.repository/target`. Установка — Help → Install New Software → Add → Archive → этот ZIP. Для development instance запустите `scripts/start-dev-edt.ps1`; для уже созданного development workspace достаточно обновить собственную launch-конфигурацию через `-PrepareOnly`. Глобальную установку EDT и её p2 не изменяет ни один скрипт сборки.
+
+Дополнительные флаги `-Smoke -ToolPlatform`, `-Smoke -ToolPlatformLive` и пара `-SemanticRestart -RestartPhase seed/restore` описаны в [testing.md](testing.md). Schema и инвентарь installed bundles хранятся только в игнорируемых каталогах; их не нужно устанавливать в EDT.

@@ -13,13 +13,31 @@ import java.util.function.Function;
 
 public final class EdtTypeService {
     public TypeDescription create(JsonObject input, Version version, Function<String, TypeItem> catalogReference) {
+        return createResolved(input, version, (kind, name) -> {
+            if (!kind.equals("CatalogRef")) throw new EdtToolException("INVALID_TYPE", kind);
+            return catalogReference.apply(name);
+        });
+    }
+
+    public TypeDescription createResolved(JsonObject input, Version version,
+            java.util.function.BiFunction<String, String, TypeItem> reference) {
         MetadataPlan.validateType(input);
         var factory = McoreFactory.eINSTANCE;
         var result = factory.createTypeDescription();
         String kind = text(input, "kind");
+        if (kind.equals("Composite")) {
+            for (var member : input.getAsJsonArray("types")) {
+                var value = createResolved(member.getAsJsonObject(), version, reference);
+                result.getTypes().addAll(value.getTypes());
+                if (value.getStringQualifiers() != null) result.setStringQualifiers(value.getStringQualifiers());
+                if (value.getNumberQualifiers() != null) result.setNumberQualifiers(value.getNumberQualifiers());
+                if (value.getDateQualifiers() != null) result.setDateQualifiers(value.getDateQualifiers());
+            }
+            return result;
+        }
         TypeItem item;
-        if (kind.equals("CatalogRef")) {
-            item = catalogReference.apply(text(input, "catalog"));
+        if (kind.endsWith("Ref")) {
+            item = reference.apply(kind, text(input, kind.equals("CatalogRef") ? "catalog" : "name"));
         } else {
             var provider = IResourceServiceProvider.Registry.INSTANCE
                     .getResourceServiceProvider(URI.createURI("model.mdo"));

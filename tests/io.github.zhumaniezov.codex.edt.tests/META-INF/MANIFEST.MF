@@ -2,11 +2,11 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Codex for 1C:EDT tests
 Bundle-SymbolicName: io.github.zhumaniezov.codex.edt.tests;singleton:=true
-Bundle-Version: 0.7.0.qualifier
+Bundle-Version: 0.8.0.qualifier
 Bundle-Vendor: zhumaniezov
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-17
-Require-Bundle: io.github.zhumaniezov.codex.edt;bundle-version="[0.7.0,0.8.0)",
+Require-Bundle: io.github.zhumaniezov.codex.edt;bundle-version="[0.8.0,0.9.0)",
  org.eclipse.core.runtime,
  com._1c.g5.wiring,
  com._1c.g5.v8.dt.core,
@@ -14,6 +14,11 @@ Require-Bundle: io.github.zhumaniezov.codex.edt;bundle-version="[0.7.0,0.8.0)",
  com._1c.g5.v8.bm.integration,
  com._1c.g5.v8.dt.metadata,
  com._1c.g5.v8.dt.mcore,
+ com._1c.g5.v8.dt.form,
+ com._1c.g5.v8.dt.form.model,
+ com._1c.g5.v8.dt.bsl,
+ com._1c.g5.v8.dt.bsl.model,
+ org.eclipse.xtext.ui,
  com._1c.g5.v8.dt.platform.core,
  com._1c.g5.v8.dt.platform,
  org.eclipse.xtext,

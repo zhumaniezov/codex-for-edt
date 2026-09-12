@@ -154,6 +154,8 @@ final class AgentActivityComponent {
                 var n = p.getAsJsonObject("networkApprovalContext");
                 text += "\n" + tr("approvalNetwork") + " " + string(n, "protocol") + "://" + string(n, "host");
             }
+        } else if(request.method().equals(io.github.zhumaniezov.codex.edt.client.NativeMcpApproval.METHOD)) {
+            text=tr("nativeMcpApproval")+"\n"+string(p,"message")+"\n"+tr("nativeMcpPlanFollows");
         } else if (request.method().equals("item/permissions/requestApproval")) {
             text += "\n" + tr("approvalPermissions") + "\n" + p.get("permissions");
         } else {
@@ -188,6 +190,7 @@ final class AgentActivityComponent {
             var button = new Button(panel, SWT.PUSH | SWT.WRAP);
             button.setText(tr("decision" + decision));
             button.setData("codex.decision", decision);
+            button.setData("codex.nativeMcpApproval",request.method().equals(io.github.zhumaniezov.codex.edt.client.NativeMcpApproval.METHOD));
             var buttonData = new GridData(SWT.FILL, SWT.CENTER, true, false);
             buttonData.widthHint = 0;
             buttonData.heightHint = 42;

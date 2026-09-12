@@ -18,7 +18,8 @@ final class StatusComponent {
     void text(String text) { status.setText(text); status.getParent().layout(true); }
     void details(Snapshot value, String project) {
         diagnostic.setText("Codex " + value.version() + tr("text101") + value.model() + " · " + value.effort()
-            + tr("text102") + project + "\n" + value.cwd() + "\nThread: " + value.threadId());
+            + tr("text102") + project + "\n" + value.cwd() + "\nThread: " + value.threadId()
+            + "\n" + io.github.zhumaniezov.codex.edt.semantic.MetadataPresentation.diagnostic(value.edtTools()));
         status.setToolTipText(diagnostic.getText()); showDiagnostic();
     }
     void showDiagnostic() {

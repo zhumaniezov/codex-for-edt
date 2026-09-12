@@ -141,3 +141,8 @@ Windows elevated setup не выполнялись на компьютере п�
 Клиент принимает пустой массив либо повторение точного cwd; любые дополнительные
 посторонние roots отклоняет. `excludeTmpdirEnvVar`, `excludeSlashTmp`, network flag,
 reviewer, approval policy, cwd и модель проверяются независимо.
+
+
+## Нативные операции 0.8
+
+Режимы sandbox/approvalPolicy прежние. EDT tool writes дополнительно проверяют текущий project/turnKey и dirty guard. Strict/Ask показывают native plan; removeChild запрашивает отдельное подтверждение во всех write modes. Stable MCP elicitation подтверждает вызов только собственного MCP; permanent/session MCP grant не сохраняется. БМ сохраняет модель, Xtext сохраняет BSL; App Server продолжает владеть своим agent loop и файловыми действиями. Отмена native плана не означает откат файлов, ранее изменённых Codex в другом tool.

@@ -55,7 +55,7 @@ public final class ProjectContextResolver implements AutoCloseable {
     }
 
     public List<IProject> candidates() {
-        return projects.get().getProjects(IConfigurationProject.class).stream().map(IConfigurationProject::getProject)
+        return java.util.stream.Stream.concat(projects.get().getProjects(IConfigurationProject.class).stream(),projects.get().getProjects(com._1c.g5.v8.dt.core.platform.IExtensionProject.class).stream()).map(com._1c.g5.v8.dt.core.platform.IV8Project::getProject)
                 .filter(ProjectContextResolver::usable).sorted(java.util.Comparator.comparing(IProject::getName))
                 .toList();
     }

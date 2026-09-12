@@ -1,4 +1,4 @@
-# Архитектура 0.7
+# Архитектура 0.8
 
 ## Нативная модель EDT
 
@@ -14,7 +14,7 @@ Codex View → ProjectContextResolver → thread cwd = физический EDT-
 
 Сервисы не зависят от SWT-контролов. `SemanticActivityComponent` показывает план и результаты; `SemanticApproval` завершает одно решение. Низкоуровневый транспорт не редактирует BM. HTTP-token и текущий turnKey выполняют разные роли: первый аутентифицирует экземпляр app-server, второй связывает инструмент с реальным текущим turn. Все write-вызовы дополнительно требуют живого project guard. Старые ключи и approvals недействительны после Stop/close/disconnect.
 
-`EdtServices` получает публичные OSGi-сервисы через освобождаемые `ServiceSupplier`. Один план — одна задача локального editing context, `save(true)`, затем освобождение контекста. Это позволяет дождаться native persistence, не генерируя XML и не сохраняя чужие dirty contexts. Транзакция откатывается EDT при исключении; ошибки файловой системы после commit не объявляются атомарным rollback.
+`EdtServices` получает публичные OSGi-сервисы через освобождаемые `ServiceSupplier`. Один план — один local editing context с предварительной проверкой и последовательными задачами, ожиданием native derived data, единственным `save(true)` и освобождением контекста. Это позволяет дождаться native persistence, не генерируя XML и не сохраняя чужие dirty contexts. Транзакция откатывается EDT при исключении; ошибки файловой системы после commit не объявляются атомарным rollback.
 
 `ProjectContextResolver` отделяет проект от редактора: thread cwd → editor → Navigator → выбранный/единственный проект → chooser. Явная смена связанного проекта создаёт новый чат. Существующий `EclipseContextProvider` продолжает собирать dirty buffer и selection, когда редактор присутствует. Пустой startup не обращается к семантической модели.
 
@@ -164,3 +164,14 @@ JSONL и prompt не журналируются. STDERR и сообщения о
 `AttachmentController` читает IDE context в UI, а real path/stat выполняет собственным executor. `AttachmentSelection` хранит до пяти проверенных ссылок, не содержимое файлов. Проверка повторяется перед отправкой. Epoch отбрасывает позднее добавление после Send, нового чата или resume. `ChatRequest` добавляет неизменяемый список относительных путей; ReadOnlyPolicy помещает их в отдельный блок text input, экранируя каждый путь JSON-строкой. Новых RPC/DTO протокола нет. UI не читает прикреплённые файлы, не сохраняет редактор и не меняет sandbox. Другие dirty buffers не загружаются; исторические chips не восстанавливаются отдельным списком из thread history.
 
 ApprovalStatusComponent показывает фактический запрет расширения разрешений. ApprovalPresenter не разрешает approve/auto-approve/reject; ApprovalPanel существует как неактивный компонент будущей интеграции. Никакого обработчика принятия разрешений, переключения sandbox или симуляции серверного запроса не добавлено.
+
+
+## EDT Tool Platform 0.8
+
+`EdtToolPlatform` отделяет транспорт от native операций. `EdtToolExecutionContext` несёт IProject, thread/turn и проверку актуальности; `EdtToolRegistry` выдаёт descriptors/schema только доступного адаптера. `MetadataTypeRegistry` строится по реальной metadata EClass-модели, а `MetadataOperations` ограничивает безопасные свойства/relations. `MetadataPreflight` проверяет план на независимом описании дерева, `MetadataOperationEngine` применяет его через фабрику EDT и BM.
+
+`EdtFormService` получает generator/management services через `.form` resource provider. `EdtBslService` использует документ редактора и Xtext AST только для чтения; `EdtDebugService` читает mapped launch state без запуска базы. Метаданные, BSL и validation разделены: единый RPC plan не обещает атомарность между BM и независимым document save. Подробные границы — [модель редактирования](edt-editing-model.md), [платформа инструментов](edt-tool-platform.md), [матрица API](edt-capability-matrix.md).
+
+App Server, модели, threads, permissions и server-side выполнение файловых операций сохранены. Добавлена обработка узкого native MCP tool approval через stable elicitation, без автоответа и без расширения sandbox. Поздние запросы другого turn, неизвестного MCP или произвольные формы отклоняются. Диагностика платформы передаётся снимком состояния из background session; SWT не выполняет поиск services при restore.
+
+`ProjectWriteGuard.openNativeEditor` охватывает только синхронный UI-вызов собственного opener. Промежуточные partActivated при создании embedded editor не проверяются раньше готовности controls; сразу при возврате выполняется прежняя строгая защита. Отмена/dirty/невозможность блокировки запрещают дальнейшую запись. Это не общее отключение guard при навигации или агентном turn.

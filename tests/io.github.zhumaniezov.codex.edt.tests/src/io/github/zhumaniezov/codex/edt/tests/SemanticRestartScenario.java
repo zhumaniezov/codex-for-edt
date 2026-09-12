@@ -21,6 +21,9 @@ final class SemanticRestartScenario {
                     if (phase.equals("seed")) {
                         metadata.apply(
                                 new MetadataPlan(JsonParser.parseString(SemanticEdtTest.PLAN).getAsJsonObject()));
+                        metadata.apply(new MetadataPlan(JsonParser.parseString(NativePlatformTest.SALES).getAsJsonObject()));
+                        NativePlatformTest.replace(new EdtBslService(new EdtToolExecutionContext(project,"restart","seed",()->true)),
+                            "src/Documents/ЗаказКлиента/Forms/ФормаДокумента/Module.bsl","&НаКлиенте\nПроцедура Заполнить(Команда)\n\tСообщить(\"RESTART OK\");\nКонецПроцедуры\n");
                     }
                     var catalog = metadata.read("edt_get_metadata_object", object("kind", "Catalog", "name", "Товары"));
                     assertEquals(4, catalog.getAsJsonArray("objects").get(0).getAsJsonObject()
@@ -30,12 +33,16 @@ final class SemanticRestartScenario {
                                     object("kind", "CommonModule", "name", "ОбщегоНазначения")).get("status")
                                     .getAsString());
                     assertTrue(project.getFile("src/Catalogs/Товары/Товары.mdo").exists());
+                    var document=metadata.read("edt_get_metadata_object",object("kind","Document","name","ЗаказКлиента")).getAsJsonArray("objects").get(0).getAsJsonObject();
+                    assertEquals(1,document.getAsJsonArray("tabularSections").size());assertTrue(document.toString().contains("Заполнить"));assertTrue(document.toString().contains("Table"));
+                    var module=new EdtBslService(new EdtToolExecutionContext(project,"restart",phase,()->true)).read(object("path","src/Documents/ЗаказКлиента/Forms/ФормаДокумента/Module.bsl"));
+                    assertTrue(module.get("text").getAsString().contains("RESTART OK"));
                 }
             } catch (Exception error) {
                 throw new java.util.concurrent.CompletionException(error);
             }
         });
-        ViewScenario.waitFor(work::isDone, 90, () -> {
+        ViewScenario.waitFor(work::isDone, 180, () -> {
         });
         work.get();
         var page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();

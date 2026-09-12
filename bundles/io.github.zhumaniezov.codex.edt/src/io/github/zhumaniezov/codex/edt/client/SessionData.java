@@ -32,8 +32,10 @@ public final class SessionData {
         public String label() { return type.isEmpty() ? tr("text031") : email.isBlank() ? type : email; }
     }
     public record Snapshot(State state, String version, List<Model> models, String model, String effort,
-            String threadId, String cwd, Account account) {
-        public Snapshot { models = List.copyOf(models); }
+            String threadId, String cwd, Account account, JsonObject edtTools) {
+        public Snapshot { models = List.copyOf(models);edtTools=edtTools.deepCopy(); }
+        public Snapshot(State state,String version,List<Model> models,String model,String effort,String threadId,String cwd,Account account) {this(state,version,models,model,effort,threadId,cwd,account,object("status","unavailable"));}
+        @Override public JsonObject edtTools() {return edtTools.deepCopy();}
         public static final Snapshot EMPTY = new Snapshot(State.DISCONNECTED, "", List.of(), "", "", "", "", Account.NONE);
     }
     public record ThreadSummary(String id, String title, long updatedAt, String cwd) { }

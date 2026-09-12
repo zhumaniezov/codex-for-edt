@@ -17,6 +17,7 @@ public record AgentApproval(String key, JsonElement id, String method, String th
     }
 
     public List<String> decisions() {
+        if(method.equals(NativeMcpApproval.METHOD))return List.of("accept","decline");
         if (method.equals("item/permissions/requestApproval")) {
             return List.of("accept", "acceptForSession", "decline");
         }
@@ -33,6 +34,7 @@ public record AgentApproval(String key, JsonElement id, String method, String th
             throw new IllegalArgumentException(
                     io.github.zhumaniezov.codex.edt.settings.LocalizationService.tr("approvalDecisionUnsupported"));
         }
+        if(method.equals(NativeMcpApproval.METHOD))return decision.equals("accept")?object("action","accept","content",object()):object("action","decline");
         if (!method.equals("item/permissions/requestApproval")) {
             return object("decision", decision);
         }

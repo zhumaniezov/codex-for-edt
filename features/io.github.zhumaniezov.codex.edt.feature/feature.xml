@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feature id="io.github.zhumaniezov.codex.edt.feature" label="Codex for 1C:EDT"
-    version="0.7.0.qualifier" provider-name="zhumaniezov">
+    version="0.8.0.qualifier" provider-name="zhumaniezov">
   <description>Нативная панель Codex для 1C:EDT. Локальный Codex App Server, потоковые ответы, режим чтения и агентный режим с подтверждениями и просмотром изменений.</description>
   <copyright>Copyright (c) 2026 zhumaniezov.</copyright>
   <license>Предварительная версия. Условия распространения пока не определены.</license>

@@ -121,3 +121,8 @@ UX исследован по [официальному IDE](https://learn.chatgp
 | Review | Unified diff и Eclipse Compare контекста hunk | Без собственного Apply/Undo/Revert |
 | Dirty buffer | Чтение по-прежнему передаёт buffer; запись требует сохранения | На время turn ввод в редакторы проекта защищён |
 | Refresh | Eclipse Job/resource change events | Без собственной семантической модели 1С |
+
+
+## EDT-native capabilities 0.8
+
+Поверх прежнего IDE UX добавлены metadata descriptors/планы, формы, Xtext document/scope/format, native validation, navigation и read-only debug state. Эти возможности адаптированы к EDT, а не скопированы из private API VS Code. Ограничения и parity по операциям приведены в [матрице EDT](edt-capability-matrix.md). App Server использует 20 native tools для конфигурации или 16 read tools для расширения; UI показывает планы и native activity. Файловый backend, threads/models/reasoning/permissions сохранены.

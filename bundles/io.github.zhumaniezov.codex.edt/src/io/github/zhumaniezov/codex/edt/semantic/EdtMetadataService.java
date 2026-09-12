@@ -34,18 +34,23 @@ public final class EdtMetadataService implements AutoCloseable {
     }
 
     public JsonObject read(String tool, JsonObject input) {
-        var v8 = configurationProject();
+        var v8 = services.projects().getProject(project);
+        if (!project.isOpen() || !(v8 instanceof IConfigurationAware aware)) throw new EdtToolException("PROJECT_CONTEXT_UNAVAILABLE",project.getName());
         return services.models().executeReadOnlyTask(tx -> {
-            var configuration = tx.toTransactionObject(v8.getConfiguration());
+            var configuration = tx.toTransactionObject(aware.getConfiguration());
+            if (tool.equals("edt_list_metadata_types")) return new MetadataTypeRegistry().catalog();
+            if (tool.equals("edt_describe_type")) return MetadataTypeRegistry.json(new MetadataTypeRegistry().require(text(input,"kind")));
             if (tool.equals("edt_get_project_context")) {
                 return object("project", project.getName(), "cwd",
                         io.github.zhumaniezov.codex.edt.context.ProjectContextResolver.directory(project),
-                        "configuration", configuration.getName(), "platformModelVersion", v8.getVersion().toString());
+                        "configuration", configuration.getName(), "platformModelVersion", v8.getVersion().toString(),"extension",v8 instanceof IExtensionProject);
             }
             if (tool.equals("edt_get_configuration_info")) {
+                var counts=new JsonObject();
+                for(var descriptor:new MetadataTypeRegistry().all())counts.addProperty(descriptor.name(),MetadataOperationEngine.members(configuration,descriptor.configurationRelation()).size());
                 return object("name", configuration.getName(), "catalogs", configuration.getCatalogs().size(),
                         "commonModules", configuration.getCommonModules().size(), "synonym",
-                        configuration.getSynonym().map());
+                        configuration.getSynonym().map(),"metadataCounts",counts,"platformModelVersion",v8.getVersion().toString(),"extension",v8 instanceof IExtensionProject);
             }
             var objects = objects(configuration);
             String kind = text(input, "kind"), name = text(input, "name");
@@ -54,6 +59,20 @@ public final class EdtMetadataService implements AutoCloseable {
             }
             if (!name.isBlank()) {
                 objects.removeIf(o -> !o.getName().equalsIgnoreCase(name));
+            }
+            if (Set.of("edt_get_children","edt_get_modules","edt_get_references").contains(tool)) {
+                if (objects.size()!=1) throw new EdtToolException("OBJECT_NOT_FOUND",kind+"."+name);
+                var target=objects.get(0);
+                if (tool.equals("edt_get_modules")) return object("modules",modules(target));
+                if (tool.equals("edt_get_children")) return describe(target,true);
+                var references=new JsonArray();
+                for(var ref:target.eClass().getEAllReferences()) {
+                    if(ref.isContainment() || ref.isDerived()) continue;
+                    Object data=target.eGet(ref);
+                    var values=data instanceof Collection<?> c ? c : data==null ? List.of() : List.of(data);
+                    for(var value:values) if(value instanceof MdObject md) references.add(object("relation",ref.getName(),"target",describe(md,false)));
+                }
+                return object("references",references,"scope","Direct metadata references; BSL index is separate");
             }
             if (tool.equals("edt_get_metadata_object") || tool.equals("edt_find_metadata_object")) {
                 var found = new JsonArray();
@@ -84,35 +103,53 @@ public final class EdtMetadataService implements AutoCloseable {
         var editing = manager.createLocalEditingContext("Codex metadata plan");
         JsonObject result;
         try {
-            result = editing.execute("Codex: metadata", UUID.randomUUID(), EdtMetadataService.class.getName(), tx -> {
-                var configuration = tx.toTransactionObject(v8.getConfiguration());
-                var results = new JsonArray();
-                for (var entry : input.getAsJsonArray("operations")) {
-                    if (!valid.getAsBoolean()) {
-                        throw new java.util.concurrent.CancellationException("EDT turn expired");
+            manager.executeReadOnlyTask(tx->{MetadataPreflight.validate(tx.toTransactionObject(v8.getConfiguration()),input.getAsJsonArray("operations"));return null;});
+            var created=new HashSet<String>();
+            if(input.getAsJsonArray("operations").asList().stream().anyMatch(e->text(e.getAsJsonObject(),"operation").equals("create"))) {
+                created.addAll(editing.execute("Codex: metadata objects",UUID.randomUUID(),EdtMetadataService.class.getName(),tx->{
+                    var staged=new HashSet<String>();
+                    var configuration=tx.toTransactionObject(v8.getConfiguration());
+                    for(var entry:input.getAsJsonArray("operations")) {
+                        var op=entry.getAsJsonObject();if(!text(op,"operation").equals("create"))continue;
+                        if(!valid.getAsBoolean())throw new java.util.concurrent.CancellationException("EDT turn expired");
+                        var descriptor=new MetadataTypeRegistry().require(text(op,"kind"));
+                        if(MetadataOperationEngine.find(configuration,descriptor,text(op,"name"))!=null)continue;
+                        var bare=object("operation","create","kind",text(op,"kind"),"name",text(op,"name"));
+                        if(op.has("form") && op.getAsJsonObject("form").has("template"))bare.add("form",object("template",text(op.getAsJsonObject("form"),"template")));
+                        applyOperation(bare,configuration,v8,namespace,tx);staged.add(text(op,"kind")+"."+text(op,"name"));
                     }
-                    results.add(applyOperation(entry.getAsJsonObject(), configuration, v8, namespace, tx));
-                }
-                verifyBoundary(configuration);
-                for (var entry : results) {
-                    var value = entry.getAsJsonObject();
-                    if (value.has("object")) {
-                        var dto = value.getAsJsonObject("object");
-                        var target = objects(configuration).stream()
-                                .filter(o -> o.eClass().getName().equals(text(dto, "kind"))
-                                        && o.getName().equals(text(dto, "name")))
-                                .findFirst();
-                        if (target.isPresent()) {
-                            verifyBoundary(target.get());
-                            locations(target.get(), dto);
-                        }
+                    return staged;
+                }));
+                manager.waitAllEnqueuedEventsSent();
+                awaitDerived();
+            }
+            var results=new JsonArray();
+            for (var entry : input.getAsJsonArray("operations")) {
+                var requested=entry.getAsJsonObject().deepCopy();
+                String createdKey=text(requested,"kind")+"."+text(requested,"name");
+                boolean initialized=text(requested,"operation").equals("create") && created.contains(createdKey);
+                if(initialized){requested.addProperty("operation","update");if(requested.has("form"))requested.getAsJsonObject("form").remove("template");}
+                var operationResult=editing.execute("Codex: metadata",UUID.randomUUID(),EdtMetadataService.class.getName(),tx->{
+                    if(!valid.getAsBoolean())throw new java.util.concurrent.CancellationException("EDT turn expired");
+                    var configuration=tx.toTransactionObject(v8.getConfiguration());
+                    var value=applyOperation(requested,configuration,v8,namespace,tx);
+                    if(initialized)value.addProperty("status","created");
+                    verifyBoundary(configuration);
+                    if(value.has("object")) {
+                        var dto=value.getAsJsonObject("object");
+                        var target=objects(configuration).stream().filter(o->o.eClass().getName().equals(text(dto,"kind")) && o.getName().equals(text(dto,"name"))).findFirst();
+                        if(target.isPresent()){verifyBoundary(target.get());locations(target.get(),dto);}
                     }
-                }
-                if (!valid.getAsBoolean()) {
-                    throw new java.util.concurrent.CancellationException("EDT turn expired");
-                }
-                return object("status", "completed", "results", results);
-            });
+                    if(!valid.getAsBoolean())throw new java.util.concurrent.CancellationException("EDT turn expired");
+                    return value;
+                });
+                if(initialized)created.remove(createdKey);
+                results.add(operationResult);
+                manager.waitAllEnqueuedEventsSent();
+                awaitDerived();
+            }
+            if(!valid.getAsBoolean())throw new java.util.concurrent.CancellationException("EDT turn expired");
+            result=object("status","completed","results",results);
             editing.save(true);
         } finally {
             editing.dispose();
@@ -124,8 +161,18 @@ public final class EdtMetadataService implements AutoCloseable {
         return result;
     }
 
+    private void awaitDerived() throws Exception {
+        try(var supplier=com._1c.g5.wiring.ServiceAccess.supplier(IDerivedDataManagerProvider.class,getClass())) {
+            var derived=supplier.get().get(project);
+            if(derived==null)throw new EdtToolException("UNSUPPORTED_BY_EDT_VERSION","Derived data manager unavailable");
+            if(!derived.waitAllComputations(60000))throw new EdtToolException("EDT_OPERATION_FAILED","Derived data computation timed out");
+        }
+    }
+
     private JsonObject applyOperation(JsonObject op, Configuration configuration, IConfigurationProject v8,
             IBmNamespace namespace, IBmPlatformTransaction tx) {
+        if (MetadataOperations.ACTIONS.contains(text(op,"operation")))
+            return new MetadataOperationEngine(services,types,this::verifyBoundary).apply(op,configuration,v8,namespace,tx);
         String action = text(op, "operation"), name = text(op, "name");
         if (action.equals("createCatalog") || action.equals("createCommonModule")) {
             EClass kind = action.equals("createCatalog") ? MdClassPackage.Literals.CATALOG
@@ -324,13 +371,29 @@ public final class EdtMetadataService implements AutoCloseable {
                 dto.addProperty("modulePath", module.getProjectRelativePath().toPortableString());
             }
         }
+        dto.add("modules",modules(value));
         return dto;
+    }
+
+    private JsonArray modules(MdObject value) {
+        var result=new JsonArray();
+        var support=services.files().getProjectFileSystemSupport(project);
+        for(var ref:MetadataTypeRegistry.describe(value.eClass(),null).modules().values()) {
+            var module=support.getFile(value,ref);
+            if(module!=null && project.equals(module.getProject())) result.add(object("property",ref.getName(),"path",module.getProjectRelativePath().toPortableString(),"exists",module.exists()));
+        }
+        if(value instanceof BasicForm wrapper && wrapper.getForm() instanceof com._1c.g5.v8.dt.form.model.Form form) {
+            var module=support.getFile(form,(EReference)form.eClass().getEStructuralFeature("module"));
+            if(module!=null && project.equals(module.getProject()))result.add(object("property","form.module","path",module.getProjectRelativePath().toPortableString(),"exists",module.exists()));
+        }
+        return result;
     }
 
     private static ArrayList<MdObject> objects(Configuration configuration) {
         var result = new ArrayList<MdObject>();
-        for (var feature : configuration.eClass().getEAllReferences()) {
-            if (feature.isMany() && MdClassPackage.Literals.MD_OBJECT.isSuperTypeOf(feature.getEReferenceType())) {
+        for (var descriptor : new MetadataTypeRegistry().all()) {
+            var feature=descriptor.configurationRelation();
+            {
                 for (Object value : (Collection<?>) configuration.eGet(feature)) {
                     if (value instanceof MdObject md) {
                         result.add(md);
@@ -365,7 +428,10 @@ public final class EdtMetadataService implements AutoCloseable {
             }
         }
         result.add("properties", properties);
-        for (String name : List.of("attributes", "tabularSections", "type")) {
+        if(value instanceof BasicForm wrapper && wrapper.getForm() instanceof com._1c.g5.v8.dt.form.model.Form form) result.add("form",EdtFormService.describe(form));
+        var childNames=new ArrayList<>(MetadataTypeRegistry.describe(value.eClass(),null).children().keySet());
+        childNames.add("type");
+        for (String name : childNames) {
             var feature = value.eClass().getEStructuralFeature(name);
             if (feature == null) {
                 continue;

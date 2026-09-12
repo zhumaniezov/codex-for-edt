@@ -465,3 +465,76 @@ Baseline `20a1e8c`, v0.5 принята пользователем. Истори
 Ранние native-пробы показали отложенную выгрузку global editing context. Реализация использует отдельный local editing context и `save(true)`; тесты проверяют ресурсы после ответа, а затем модель после restart. В close/open проверке нужно дождаться смены lifecycle project services. Первый live harness исправлен после преждевременного нажатия кнопки следующего turn, пока UI ещё показывал Stop; повторный полный сценарий прошёл.
 
 Ручная приёмка 0.7 ещё требуется: **TC-68…TC-86**, прежде всего Navigator с несколькими конфигурациями, стандартные редакторы созданных объектов, реальные BSL/metadata dirty-вкладки, типы, RU/EN и Light/Dark. Программные native/live проверки дополняют эту приёмку. Пустой `Module.bsl` до первой записи не обязателен; наличие общего модуля проверяется в модели EDT. Окончательные Problems могут появиться после завершения фоновых validators.
+
+
+## Нативная платформа EDT 0.8
+
+Baseline `54d9fca`, EDT 2026.1.3.25, Codex 0.154.0-alpha.6.2. Все проверки записи используют одноразовые проекты `.runtime`; настоящие конфигурации пользователя не изменяются.
+
+| Сценарий | Действия и ожидаемый результат |
+| --- | --- |
+| TC-87 — Каталог API | В выбранном проекте запросить возможности EDT. Codex получает реальный каталог типов/свойств и native tools; unsupported не выдаётся за выполненную операцию. |
+| TC-88 — Проект без редактора | Закрыть редакторы, выбрать проект в Navigator/диалоге. Структура приходит из model tools, cwd — физический root. |
+| TC-89 — Полный сценарий Продажи | Попросить создать подсистему Продажи, Номенклатуру с Артикулом и Ценой, ЗаказКлиента с Товарами/Номенклатурой/Количеством, общий модуль, OBJECT-форму с таблицей и Заполнить. Проверить native approval, объекты и редакторы. |
+| TC-90 — Типы | Создать реквизиты primitive, CatalogRef, DocumentRef, EnumRef и Composite. Некорректный target/name/enum должен дать структурированную ошибку. |
+| TC-91 — Tier 1 | Проверить обычные native редакторы Catalog, Document, Constant, Enum, CommonModule, CommonForm, CommonCommand, Subsystem, Role, Report, DataProcessor. Созданный объект не означает готовую прикладную бизнес-логику. |
+| TC-92 — Регистр | Создать InformationRegister с dimension Ключ и resources Успешно/Значение. Проверить типы и стандартный редактор. |
+| TC-93 — HTTP-service | Создать ПроверкаHTTP, шаблон /ping, GET→Ping, BSL возврата HTTPСервисОтвет(200) с pong. Проверить связь handler и модуль. Реальная публикация HTTP/запуск базы в автоматический тест не входит. |
+| TC-94 — Существующая форма | Добавить кнопку Проверить, команду и клиентский handler в существующую форму, сохранить прежние элементы/код. Form.xml не редактируется вручную. |
+| TC-95 — Dirty BSL read | Не сохранять новый код. edt_bsl_read должен видеть buffer и dirty=true; edt_bsl_edit не имеет права его перезаписать. |
+| TC-96 — Редактирование BSL | Прочитать SHA-256, применить text edits через native tool. Изменённый между чтением/записью документ отклоняется; код сохраняется EDT. |
+| TC-97 — Formatter/scope | Запросить native форматирование и сведения об узле/окружении/методах. Проверить, что смысл кода сохранён, большой scope имеет truncated. |
+| TC-98 — Validation | Внести синтаксическую ошибку в тестовый модуль, запросить EDT проверку, исправить через native document tool. Сверить Problems и редакторские диагностики; дать фоновым validators завершиться. |
+| TC-99 — Rollback | План создаёт объект, затем содержит несуществующую команду формы. Ни первоначальный объект, ни часть формы не должны остаться после отказа. |
+| TC-100 — Decline/Stop | Отклонить план; затем Stop при ожидании другого плана. Никакие поздние callbacks не применяют его в следующем turn. |
+| TC-101 — Граница проекта | Передать ../, linked file и путь соседнего проекта. Инструмент отклоняет запрос; writable root не расширяется. |
+| TC-102 — Extension | Выбрать расширение. Проверить чтение и отсутствие write tools; mutation не перенаправляется в основную конфигурацию. |
+| TC-103 — Navigation/debug | Открыть свой Module.bsl/строку через tool. Debug возвращает только mapped launches/breakpoints, не запускает/подключает базу. |
+| TC-104 — Restart native data | Закрыть EDT с открытой Codex View, запустить снова. Проверить форму, таблицу, команды, BSL и восстановление панели. |
+| TC-105 — Native MCP approval | В Strict/Ask подтвердить официальный запрос собственного MCP, затем native plan. Отклонение любого шага запрещает изменение; чужие MCP и формы ввода отклоняются без падения View. |
+| TC-106 — UI/regression | RU/EN, Light/Dark, dirty context, три turn одного thread, New/Resume/Stop, account/MCP/settings; Diagnostics содержит native platform/available counts и не занимает основной чат постоянно. |
+
+### Воспроизводимые команды
+
+```powershell
+.\scripts\build.ps1
+.\scripts\start-dev-edt.ps1 -Smoke
+.\scripts\start-dev-edt.ps1 -Smoke -ToolPlatform
+.\scripts\start-dev-edt.ps1 -Smoke -ToolPlatformLive
+.\scripts\start-dev-edt.ps1 -Smoke -SemanticRestart -RestartPhase seed -RestartName native080
+.\scripts\start-dev-edt.ps1 -Smoke -SemanticRestart -RestartPhase restore -RestartName native080
+```
+
+ToolPlatform проверяет native API без OpenAI. ToolPlatformLive использует существующую авторизацию Codex и реальную модель; тестовая автоматизация принимает только подтверждения своего native MCP и native планы, отклоняет file/command approvals. Он создаёт специальный проект, проверяет четыре запроса одного thread и удаляет свою фикстуру. Скопированные результаты native save остаются в `native-artifacts` рядом с result.txt; это диагностические артефакты, не исходники плагина.
+
+### Важные результаты диагностики реализации
+
+- В модели есть transient служебные Type, не являющиеся файлами проекта. Присоединять любой non-containment EObject как внешний ресурс неправильно. Адаптер присоединяет только native module/form/role-description; канонический уже существующий module получает по native FQN.
+- Новые producer types/DbView требуют завершения derived computations. Один model-event barrier недостаточен. Ожидание штатного менеджера выполняется вне BM-задачи.
+- Пустому невыгруженному Module.bsl нужен URI opener EDT; обычный FileEditorInput не гарантирует документ. Уже открытый editor переиспользуется.
+- EDT повторяет задачу при BM deadlock. Внешнее состояние не изменяется внутри повторяемого callback. Dispose local context откатывает несколько несохранённых задач; это проверено отдельно от preflight failure.
+- Стенд close/open должен дождаться lifecycle DELETED и закрытия своих редакторов. Это не обоснование удаления workbench state или пользовательского workspace.
+- Первый live-прогон обнаружил необработанный mcpServer/elicitation/request. Добавлена проверка своего server/thread/turn и пустой approval-schema; поддержка произвольных elicitation forms не имитируется.
+- Повторный live-прогон выявил отдельный конфликт защиты редакторов с native URI opener: `ProjectWriteGuard.lockEditors` получал `partActivated` ещё внутри `AbstractTextEditor.init`, когда embedded BSL control HTTP-сервиса не создан. Собственное открытие теперь ограничено UI-вызовом `openNativeEditor`; сразу после возврата opener выполняется полная проверка dirty state и блокировка controls. Чужие открытия и неизвестные редакторы по-прежнему отклоняются, защита записи не выключается. Регрессия открывает второй native BSL editor при активной защите. Это не доказательство причины старого startup Error Part версии 0.3.
+
+### Итоговая проверка 12.09.2026
+
+| Проверка | Результат | Локальный журнал / стенд |
+| --- | --- | --- |
+| Maven/Tycho clean verify | **BUILD SUCCESS**; 162 обнаружено, 150 выполнено, 12 opt-in пропущено, 0 failures/errors | `.runtime/v080-build-final.log` |
+| Полная EDT 2026.1.3.25, окончательные JAR | **155 тестов, 0 failures** | `.runtime/edt-smoke-20260912215718/result.txt` |
+| Native regression отдельно | **4 сценария PASS**, включая 48 типов, Sales, HTTP/register, существующую форму, второй BSL editor под guard | `.runtime/edt-smoke-20260912214936/result.txt` |
+| Реальный Codex native end-to-end | **PASS**; gpt-6-astra, четыре turn одного thread, 10 принятых native планов; shell/file approvals отклоняются стендом | `.runtime/edt-smoke-20260912214950/result.txt` |
+| Прежний live-тест файлового агента | **PASS**; write/approvals/commands/refresh/read-only regression | `.runtime/edt-smoke-20260912214602/result.txt` |
+| Полный restart | **seed PASS → restore PASS**; метаданные, таблица формы, команда, BSL `RESTART OK`, восстановленная Codex View без активного редактора | `.runtime/edt-restart-native080/result-seed.txt`, `result-restore.txt` |
+| p2 | 6 IU; все 3 artifact JAR существуют и читаются; main plugin + commonmark + feature; тестовый bundle отсутствует | `.runtime/v080-p2-verification.json` |
+
+Счётчики Maven и полного продукта перекрываются: это не 305 различных тестов. В текущем этапе добавлены 16 contract-тестов и 4 native integration-сценария; live acceptance и исследовательский capability probe включаются отдельно. Наличие публичной capability не означает, что для неё реализованы все операции или весь Tier 3.
+
+**Фактический end-to-end:** реальный Codex создал подсистему Продажи, справочник Номенклатура, документ ЗаказКлиента с Товары, общий модуль, OBJECT-форму с таблицей/кнопкой/обработчиком; затем HTTPService ПроверкаHTTP (`/ping`, GET→Ping, `pong`) и InformationRegister СостоянияОбмена; дополнил существующую форму командой/кнопкой Проверить и сохранил Заполнить; в четвёртом запросе семантически прочитал структуру без новой записи. Создание метаданных/форм и сохранение BSL выполнялись через EDT, без ручной генерации XML. Артефакты сохранены в `native-artifacts/live-acceptance` своего стенда. Запуск базы и публикация HTTP не выполнялись.
+
+Дополнительный CLI BSL Language Server 1.0.5 проверил два модуля live-артефакта: **0 диагностик Error, 3 Warning**, также есть информационные замечания. В служебном журнале до анализа файлов присутствуют два `token recognition error at: '?'`; их первопричина не установлена, поэтому журнал не объявляется полностью чистым. Файлы проверены как UTF-8; native Xtext parse-check формы прошёл. Предупреждения о локально неиспользуемых handlers не означают отсутствия привязки в модели формы/HTTP service. CLI — дополнительная проверка, не подмена EDT validators; существующая интеграция MCP `analyze_file` не используется из-за известной проблемы передачи workspace roots.
+
+p2 ZIP: `repositories/io.github.zhumaniezov.codex.edt.repository/target/io.github.zhumaniezov.codex.edt.repository-0.8.0-SNAPSHOT.zip`, feature/plugin **0.8.0.202609121654**. SHA-256 ZIP: `0FF471F0B79FBBE68B72B8490BFB1ACED1827C85BFF342B6A68D206E3531834C`. Наличие этого архива не означает установку в глобальную EDT: сборка её не изменяла.
+
+Пользовательская ручная приёмка 0.8 остаётся отдельным шагом: TC-87…TC-106 на копии конфигурации; проверить визуальные формы/BSL, native approvals, decline/Stop, Problems, RU/EN и обе темы. Повторная сборка создаёт новый qualifier/hash; приведённые значения относятся к проверенному архиву.

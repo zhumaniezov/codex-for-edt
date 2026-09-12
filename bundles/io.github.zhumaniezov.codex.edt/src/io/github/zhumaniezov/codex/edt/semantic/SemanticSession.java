@@ -26,6 +26,8 @@ public final class SemanticSession implements AutoCloseable {
     private IProject project;
     private Path cwd;
     private String route;
+    private volatile JsonObject diagnostic=object("status","unavailable");
+    public JsonObject diagnostic() {return diagnostic.deepCopy();}
     private final String serverName = "codex_edt_native_"
             + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
@@ -35,6 +37,7 @@ public final class SemanticSession implements AutoCloseable {
 
     private final Set<CompletableFuture<Void>> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<SemanticApproval> approvals = ConcurrentHashMap.newKeySet();
+    private final java.util.concurrent.locks.ReentrantLock mutationLock=new java.util.concurrent.locks.ReentrantLock();
 
     private static final class Permit {
         final String key = UUID.randomUUID().toString();
@@ -75,19 +78,25 @@ public final class SemanticSession implements AutoCloseable {
         route = null;
         cwd = null;
         project = null;
+        diagnostic=object("status","unavailable");
         IProject candidate = ProjectContextResolver.find(directory.toString());
         if (candidate == null) {
             return;
         }
         try (var services = new EdtServices()) {
             if (!(services.projects()
-                    .getProject(candidate) instanceof com._1c.g5.v8.dt.core.platform.IConfigurationProject)) {
+                    .getProject(candidate) instanceof com._1c.g5.v8.dt.core.platform.IConfigurationAware)) {
                 return;
             }
         }
         cwd = directory;
         project = candidate;
-        route = bridge.register(this::call);
+        var catalog=EdtToolPlatform.registry(candidate);
+        var details=catalog.diagnostic();
+        details.addProperty("status","ready");
+        details.addProperty("edtVersion",org.eclipse.core.runtime.Platform.getBundle("com._1c.g5.v8.dt.product.application").getVersion().toString());
+        diagnostic=details;
+        route = bridge.register(this::call,catalog::catalog);
         config.getAsJsonObject("mcp_servers").add(serverName, bridge.config(route));
     }
 
@@ -142,14 +151,12 @@ public final class SemanticSession implements AutoCloseable {
             }
             var arguments = input.deepCopy();
             arguments.remove("turnKey");
-            try (var metadata = new EdtMetadataService(project)) {
-                if (SemanticTools.READ.contains(tool)) {
+            try (var metadata = new EdtToolPlatform(new EdtToolExecutionContext(project,permit.thread,turn,
+                    () -> valid(permit) && (!permit.mode.writes() || ProjectWriteGuard.protectedProject(project))))) {
+                if (!metadata.tool(tool).writes()) {
                     listener.get().semanticResult(object("threadId", permit.thread, "turnId", turn, "project",
-                            project.getName(), "state", "reading"));
+                            project.getName(), "state", "reading", "tool",tool));
                     return metadata.read(tool, arguments);
-                }
-                if (!tool.equals("edt_apply_metadata_plan")) {
-                    throw new IllegalArgumentException("Unknown EDT tool");
                 }
                 if (!permit.mode.writes()) {
                     throw new IllegalStateException(tr("semanticReadOnly"));
@@ -157,8 +164,9 @@ public final class SemanticSession implements AutoCloseable {
                 if (!ProjectWriteGuard.protectedProject(project)) {
                     throw new IllegalStateException(tr("dirtyRequired"));
                 }
-                var plan = new MetadataPlan(arguments);
-                if (permit.mode == PermissionMode.STRICT || permit.mode == PermissionMode.ASK) {
+                var plan = metadata.plan(tool,arguments);
+                boolean destructive=plan.json().getAsJsonArray("operations").asList().stream().anyMatch(o->string(o.getAsJsonObject(),"operation").equals("removeChild"));
+                if (permit.mode == PermissionMode.STRICT || permit.mode == PermissionMode.ASK || destructive) {
                     var approval = new SemanticApproval(permit.thread, turn, project.getName(), plan);
                     approvals.add(approval);
                     try {
@@ -175,8 +183,13 @@ public final class SemanticSession implements AutoCloseable {
                     throw new IllegalStateException(tr("approvalExpired"));
                 }
                 listener.get().semanticResult(object("threadId", permit.thread, "turnId", turn, "project",
-                        project.getName(), "state", "applying"));
-                var result = metadata.apply(plan, () -> valid(permit) && ProjectWriteGuard.protectedProject(project));
+                        project.getName(), "state", "applying", "tool",tool));
+                JsonObject result;
+                mutationLock.lockInterruptibly();
+                try {
+                    if(!valid(permit) || !ProjectWriteGuard.protectedProject(project))throw new IllegalStateException(tr("approvalExpired"));
+                    result=metadata.apply(plan);
+                } finally {mutationLock.unlock();}
                 listener.get().semanticResult(object("threadId", permit.thread, "turnId", turn, "project",
                         project.getName(), "result", result));
                 return result;

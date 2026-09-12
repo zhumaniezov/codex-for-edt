@@ -139,6 +139,15 @@ public final class CodexSessionService implements CodexClient {
         try {
             var p = message.getAsJsonObject("params");
             String method = string(message, "method");
+            if(method.equals(NativeMcpApproval.METHOD)) {
+                if(!permissionMode.writes() || active==null || snapshot.state()==State.STOPPING || semantic==null
+                        || !NativeMcpApproval.supported(p,semantic.serverName(),threadId,active.id)) {
+                    rpc.respond(message.get("id"),object("action","decline"));return;
+                }
+                String key=generation+":"+CodexAppServerClient.idKey(message.get("id"));
+                var request=new AgentApproval(key,message.get("id"),method,threadId,active.id,"",p,projectDirectory,permissionMode);
+                approvals.put(key,request);listener.approval(request);return;
+            }
             if (p == null || string(p, "threadId").isBlank() || string(p, "turnId").isBlank()
                     || string(p, "itemId").isBlank()
                     || !List.of("item/fileChange/requestApproval", "item/commandExecution/requestApproval",
@@ -229,7 +238,7 @@ public final class CodexSessionService implements CodexClient {
     private void state(State state) {
         snapshot = new Snapshot(state, connection == null ? "" : connection.version(), models,
                 connection == null ? "" : connection.model(), effort, threadId,
-                projectDirectory == null ? "" : projectDirectory.toString(), account);
+                projectDirectory == null ? "" : projectDirectory.toString(), account,semantic==null?object("status","unavailable"):semantic.diagnostic());
         listener.status(state.label());
         listener.changed(snapshot);
     }
@@ -340,7 +349,7 @@ public final class CodexSessionService implements CodexClient {
                 }
                 var bundle = FrameworkUtil.getBundle(CodexSessionService.class);
                 call("initialize", object("clientInfo", object("name", "codex_edt", "title", "Codex for 1C:EDT",
-                        "version", bundle == null ? "0.7.0" : bundle.getVersion().toString())));
+                        "version", bundle == null ? "0.8.0" : bundle.getVersion().toString())));
                 rpc.notify("initialized");
                 initialized = true;
                 JsonObject response = call("account/read", object("refreshToken", false));

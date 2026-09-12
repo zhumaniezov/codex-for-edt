@@ -3,12 +3,12 @@
 <target name="Codex - EDT 2026.1 / Java 17" sequenceNumber="2">
   <locations>
     <!-- Репозитории релиза взяты из 1C-Company/dt-example-plugins, коммит 921c30c.
-         Плагину не нужны компоненты редактирования метаданных и запуска платформы. -->
+         Native API сверяется с установленной EDT 2026.1.3.25. -->
     <location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="slicer" includeSource="true" type="InstallableUnit">
       <repository location="https://edt.1c.ru/downloads/releases/ruby/2026.1/"/>
-      <unit id="com._1c.g5.v8.dt.rcp" version="0.0.0"/>
-      <unit id="com._1c.g5.v8.dt.feature.feature.group" version="0.0.0"/>
-      <unit id="com._1c.g5.v8.dt.thirdparty.feature.group" version="0.0.0"/>
+      <unit id="com._1c.g5.v8.dt.rcp" version="1.35.3"/>
+      <unit id="com._1c.g5.v8.dt.feature.feature.group" version="1.35.3.v202609041212"/>
+      <unit id="com._1c.g5.v8.dt.thirdparty.feature.group" version="1.35.3"/>
     </location>
     <location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="slicer" includeSource="true" type="InstallableUnit">
       <repository location="https://download.eclipse.org/releases/2023-12/"/>

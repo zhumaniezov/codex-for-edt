@@ -28,7 +28,8 @@ public final class LocalMcpBridge implements AutoCloseable {
     private final ServerConnector connector;
     private final String secret;
     private final String envName = "CODEX_EDT_MCP_" + UUID.randomUUID().toString().replace("-", "");
-    private final Map<String, ToolHandler> routes = new ConcurrentHashMap<>();
+    private record Route(ToolHandler handler,java.util.function.Supplier<JsonObject> catalog) { }
+    private final Map<String, Route> routes = new ConcurrentHashMap<>();
 
     public LocalMcpBridge() throws Exception {
         byte[] bytes = new byte[32];
@@ -66,8 +67,12 @@ public final class LocalMcpBridge implements AutoCloseable {
     }
 
     public String register(ToolHandler handler) {
+        return register(handler,SemanticTools::list);
+    }
+
+    public String register(ToolHandler handler,java.util.function.Supplier<JsonObject> catalog) {
         String route = "/mcp/" + UUID.randomUUID();
-        routes.put(route, handler);
+        routes.put(route, new Route(handler,catalog));
         return route;
     }
 
@@ -100,8 +105,8 @@ public final class LocalMcpBridge implements AutoCloseable {
             response.setStatus(401);
             return;
         }
-        ToolHandler handler = routes.get(target);
-        if (handler == null) {
+        Route route = routes.get(target);
+        if (route == null) {
             response.setStatus(404);
             return;
         }
@@ -151,19 +156,19 @@ public final class LocalMcpBridge implements AutoCloseable {
             switch (string(message, "method")) {
             case "initialize" -> result = object("protocolVersion", "2025-06-18", "capabilities",
                     object("tools", object("listChanged", false)), "serverInfo",
-                    object("name", "codex-edt-semantic", "version", "0.7.0"), "instructions",
+                    object("name", "codex-edt-semantic", "version", "0.8.0"), "instructions",
                     "EDT native metadata tools. Use one grouped metadata plan; never generate metadata XML by shell or file patches.");
             case "ping" -> result = object();
-            case "tools/list" -> result = SemanticTools.list();
+            case "tools/list" -> result = route.catalog().get();
             case "tools/call" -> {
                 JsonObject value;
                 boolean failed = false;
                 try {
-                    value = handler.call(string(params, "name"),
+                    value = route.handler().call(string(params, "name"),
                             params.has("arguments") ? params.getAsJsonObject("arguments") : object());
                 } catch (Exception error) {
                     failed = true;
-                    value = object("status", "error", "message",
+                    value = object("status", "error", "code",error instanceof EdtToolException e ? e.code() : "EDT_OPERATION_FAILED", "message",
                             redact(error.getMessage() == null ? "EDT operation failed" : error.getMessage()));
                 }
                 result = object("content", List.of(object("type", "text", "text", JSON.toJson(value))), "isError",

@@ -164,3 +164,9 @@ Settings используют отдельный процесс без threads: 
 Проверены публичные исходники `app-server/src/mcp_refresh.rs` (`reload_mcp_config`, тест `refresh_config_preserves_thread_mcp_overrides`) и `request_processors/thread_processor.rs` (сообщение `thread/resume overrides ignored for loaded thread`). Reload перечитывает MCP для loaded threads; новый сервер мог отсутствовать среди исходных disabled overrides. Поэтому Preferences используют отдельный owned process без threads, а management MCP на агентском клиенте запрещён. Глобальная конфигурация остаётся общей; файл не редактируется нашим Java-кодом. Код VS Code Extension не используется.
 
 Schema повторно сгенерирована установленным `codex-cli 0.153.4` в `.runtime/app-server-schema-stage4` 11.09.2026. Временные schema и сторонние исходники не публикуются.
+
+## Повторная проверка для native platform 0.8
+
+12.09.2026 установленный executable уже возвращает **codex-cli 0.154.0-alpha.6.2**. Повторно выполнены `--version`, `app-server --help` и генерация schema в игнорируемый `.runtime/app-server-schema-v080`. Версия 0.153.4 выше относится к предыдущему этапу.
+
+Стабильный `developerInstructions` передаёт правило использовать EDT-native операции. Экспериментальные dynamic client tools не включены; используется собственный session MCP bridge. Дополнительно реализован узкий `mcpServer/elicitation/request` для подтверждений своего инструмента; scope и ограничения описаны в [аудите EDT/App Server](edt-capabilities.md#codex-mcp-approval). Глобальные MCP/config/auth не изменяются.

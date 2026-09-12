@@ -18,6 +18,23 @@ import org.eclipse.ui.ide.ResourceUtil;
 public final class ProjectWriteGuard implements AutoCloseable {
     private static final java.util.concurrent.ConcurrentMap<IProject, ProjectWriteGuard> ACTIVE = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile boolean valid = true;
+    private int nativeEditorOpening;
+
+    /** EDT активирует embedded editor ещё внутри createPartControl; проверяем его после возврата opener. */
+    public static <T> T openNativeEditor(IProject project, java.util.concurrent.Callable<T> open) throws Exception {
+        var guard=ACTIVE.get(project);
+        if(guard==null)return open.call();
+        if(!guard.valid || guard.closed)throw new IllegalStateException(tr("approvalExpired"));
+        guard.nativeEditorOpening++;
+        try {return open.call();}
+        finally {
+            guard.nativeEditorOpening--;
+            if(guard.nativeEditorOpening==0 && !guard.closed) {
+                guard.protect();
+                if(!guard.valid)throw new IllegalStateException(tr("dirtyCannotProtect"));
+            }
+        }
+    }
 
     public static boolean protectedProject(IProject project) {
         var guard = ACTIVE.get(project);
@@ -170,13 +187,14 @@ public final class ProjectWriteGuard implements AutoCloseable {
     }
 
     private void protect() {
-        if (closed) {
+        if (closed || nativeEditorOpening > 0) {
             return;
         }
         try {
             lockEditors();
         } catch (RuntimeException error) {
             valid = false;
+            io.github.zhumaniezov.codex.edt.CodexPlugin.log(error.getMessage(), error);
             abort.run();
         }
     }
